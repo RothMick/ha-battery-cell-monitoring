@@ -8,7 +8,7 @@ Home Assistant Lovelace custom card for monitoring per-cell voltages of home bat
 - **Status badge** — color-coded spread status: green (<20 mV) / yellow (watch) / orange (balancing needed) / red (critical)
 - **Warning banner** — appears on elevated spread, dismissible (localStorage)
 - **Stats row** — min / mean / max / spread
-- **Peak spread tracking** — highest observed spread is kept with a timestamp, reset button (localStorage, per browser)
+- **Peak spread tracking** — highest observed spread is kept with a timestamp, reset button; stored in an `input_text` helper so the value is identical on all devices (falls back to localStorage when no helper exists)
 - **UI editor** — card title, batteries (add / remove / reorder), entity stem with cell count and digits, display options via switches
 - **Multiple batteries** in one card
 - **Localized** — English and German, follows the Home Assistant UI language
@@ -44,6 +44,7 @@ batteries:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string | – | Card heading |
+| `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | `input_text` helper storing the peaks as a JSON array ordered by display position: `[{"i":<battery id>,"s":<spread mV>,"t":<timestamp>}, ...]` |
 | `warn_thresholds.watch` | number | 20 | mV threshold yellow |
 | `warn_thresholds.balance` | number | 50 | mV threshold orange |
 | `warn_thresholds.critical` | number | 200 | mV threshold red |

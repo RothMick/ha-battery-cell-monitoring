@@ -38,6 +38,7 @@ const BCM_TRANSLATIONS = {
     reset_peak:       'Reset peak',
     battery:          'Battery',
     card_title:       'Card title',
+    peak_helper:      'Peak helper (input_text)',
     label_name:       'Name',
     label_prefix:     'Entity stem of the cells',
     label_cell_count: 'Number of cells',
@@ -67,6 +68,7 @@ const BCM_TRANSLATIONS = {
     reset_peak:       'Peak zurücksetzen',
     battery:          'Batterie',
     card_title:       'Titel der Kachel',
+    peak_helper:      'Peak-Helfer (input_text)',
     label_name:       'Bezeichnung',
     label_prefix:     'Entity-Stamm der Zellen',
     label_cell_count: 'Anzahl Zellen',
@@ -145,6 +147,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _entitiesChanged(oldHass, newHass) {
+    const helper = this._peakHelper();
+    if (oldHass.states[helper] !== newHass.states[helper]) return true;
     return this._config.batteries.some(b =>
       this._trackedIds(b).some(id => oldHass.states[id] !== newHass.states[id])
     );
@@ -173,28 +177,84 @@ class BatteryCellMonitoringCard extends HTMLElement {
   _peakKey(key)    { return 'bcm_peak_' + key; }
   _dismissKey(key) { return 'bcm_dismiss_' + key; }
 
-  _getPeak(key) {
+  _peakHelper() {
+    return this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks';
+  }
+
+  // Returns the peak array from the helper, [] when empty/invalid,
+  // or null when the helper entity does not exist (-> localStorage fallback).
+  _readPeaks() {
+    const s = this._hass?.states[this._peakHelper()];
+    if (!s) return null;
     try {
-      const d = JSON.parse(localStorage.getItem(this._peakKey(key)));
-      return d || null;
-    } catch { return null; }
+      const a = JSON.parse(s.state);
+      return Array.isArray(a) ? a : [];
+    } catch { return []; }
+  }
+
+  // Writes the peaks as a compact array ordered by display position:
+  // [{"i":<battery key>,"s":<spread mV>,"t":<timestamp>}, ...]
+  _writePeaks(byKey) {
+    const arr = this._config.batteries
+      .map(b => {
+        const k = this._batteryKey(b);
+        const e = byKey[k];
+        return e ? { i: k, s: e.s, t: e.t } : null;
+      })
+      .filter(Boolean);
+    this._hass.callService('input_text', 'set_value', {
+      entity_id: this._peakHelper(),
+      value: JSON.stringify(arr),
+    });
+  }
+
+  _nowTs() {
+    const now = new Date();
+    const locale = bcmLang(this._hass) === 'de' ? 'de-DE' : 'en-GB';
+    return now.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
+         + ' ' + now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  _getPeak(key) {
+    const peaks = this._readPeaks();
+    if (peaks === null) {
+      try {
+        const d = JSON.parse(localStorage.getItem(this._peakKey(key)));
+        return d || null;
+      } catch { return null; }
+    }
+    const e = peaks.find(p => p.i === key);
+    return e ? { spread: e.s, ts: e.t } : null;
   }
 
   _updatePeak(key, spreadMv) {
     const rounded = Math.round(spreadMv);
-    const current = this._getPeak(key);
-    if (!current || rounded > current.spread) {
-      const now = new Date();
-      const locale = bcmLang(this._hass) === 'de' ? 'de-DE' : 'en-GB';
-      const ts = now.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
-               + ' ' + now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-      localStorage.setItem(this._peakKey(key), JSON.stringify({ spread: rounded, ts }));
+    const peaks = this._readPeaks();
+    if (peaks === null) {
+      const current = this._getPeak(key);
+      if (!current || rounded > current.spread) {
+        localStorage.setItem(this._peakKey(key), JSON.stringify({ spread: rounded, ts: this._nowTs() }));
+      }
+      return;
     }
+    const current = peaks.find(p => p.i === key);
+    if (current && rounded <= current.s) return;
+    const byKey = {};
+    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t }; });
+    byKey[key] = { s: rounded, t: this._nowTs() };
+    this._writePeaks(byKey);
   }
 
   _resetPeak(key) {
-    localStorage.removeItem(this._peakKey(key));
-    this._render();
+    const peaks = this._readPeaks();
+    if (peaks === null) {
+      localStorage.removeItem(this._peakKey(key));
+      this._render();
+      return;
+    }
+    const byKey = {};
+    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t }; });
+    this._writePeaks(byKey); // re-render follows from the helper state change
   }
 
   _isDismissed(key, spreadMv) {
@@ -573,12 +633,23 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     // Title form
     const titleForm = this.shadowRoot.getElementById('title-form');
     titleForm.hass = this._hass;
-    titleForm.schema = [{ name: 'title', label: this._t('card_title'), selector: { text: {} } }];
-    titleForm.data = { title: this._config.title || '' };
+    titleForm.schema = [
+      { name: 'title', label: this._t('card_title'), selector: { text: {} } },
+      { name: 'peak_helper', label: this._t('peak_helper'), selector: { entity: { domain: 'input_text' } } },
+    ];
+    titleForm.data = {
+      title: this._config.title || '',
+      peak_helper: this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks',
+    };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
-      const v = ev.detail.value?.title || '';
-      if (v) this._config.title = v; else delete this._config.title;
+      const v = ev.detail.value || {};
+      if (v.title) this._config.title = v.title; else delete this._config.title;
+      if (v.peak_helper && v.peak_helper !== 'input_text.battery_cell_monitoring_peaks') {
+        this._config.peak_helper = v.peak_helper;
+      } else {
+        delete this._config.peak_helper;
+      }
       this._fire(false);
     });
 
