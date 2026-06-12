@@ -738,7 +738,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';"><span class="warn-icon" style="color:' + warnLvl.color + ';">⚠</span><span class="warn-text" style="color:' + warnLvl.color + ';">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
-    const fmt = v => v.toFixed(3) + ' V';
+    const fmt = v => Math.round(v * 1000) + ' mV';
 
     let chartHtml = '';
     if (showChart) {
