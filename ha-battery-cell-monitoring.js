@@ -515,6 +515,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._editing = false;
+    this._pending = false;
     this._open = { status: false, warn: false };
   }
 
@@ -545,10 +546,14 @@ class BatteryCellMonitoringEditor extends HTMLElement {
   }
 
   _levelRows(list, listName) {
-    return list.map((_, i) =>
-      '<div class="lvl-row"><ha-form id="' + listName + '-lvl-' + i + '"></ha-form>'
-      + '<button class="icon-btn danger lvl-del" data-list="' + listName + '" data-idx="' + i + '" title="' + this._t('remove') + '">✕</button></div>'
-    ).join('');
+    return list.map((entry, i) => {
+      const hex = /^#[0-9a-fA-F]{6}$/.test(entry.color || '') ? entry.color : '#eab308';
+      return '<div class="lvl-row">'
+        + '<ha-form id="' + listName + '-lvl-' + i + '"></ha-form>'
+        + '<input type="color" class="lvl-color" data-list="' + listName + '" data-idx="' + i + '" value="' + hex + '" title="' + this._t('col_color') + '">'
+        + '<button class="icon-btn danger lvl-del" data-list="' + listName + '" data-idx="' + i + '" title="' + this._t('remove') + '">✕</button>'
+        + '</div>';
+    }).join('');
   }
 
   setConfig(config) {
@@ -581,8 +586,40 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       bubbles: true,
       composed: true,
     }));
-    if (rerender) this._render();
+    if (rerender) {
+      // Keep the user's scroll position on structural changes (add/move/delete).
+      const scroller = this._findScroller();
+      const saved = scroller ? scroller.scrollTop : null;
+      this._render();
+      if (scroller != null && saved != null) {
+        requestAnimationFrame(() => { scroller.scrollTop = saved; });
+      }
+    }
     this._editing = false;
+  }
+
+  // Text inputs are buffered: the config is updated locally on every keystroke
+  // but config-changed only fires when the field loses focus. This prevents
+  // HA's async setConfig round-trip from re-rendering (and stealing focus)
+  // while the user is typing.
+  _queue() { this._pending = true; }
+
+  _flush() {
+    if (!this._pending) return;
+    this._pending = false;
+    this._fire(false);
+  }
+
+  _wireBuffered(form) {
+    form.addEventListener('focusout', () => {
+      setTimeout(() => {
+        if (this._pending && this.shadowRoot.activeElement !== form) this._flush();
+      }, 0);
+    });
+  }
+
+  disconnectedCallback() {
+    this._flush();
   }
 
   _moveBattery(idx, dir) {
@@ -641,7 +678,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     b.digits        = parseInt(values.digits, 10) || 1;
     // Drop a legacy cells array once the prefix mode is used.
     if (b.entity_prefix && Array.isArray(b.cells)) delete b.cells;
-    this._fire(false);
+    this._queue();
   }
 
   _toggleOption(idx, option, checked) {
@@ -712,8 +749,9 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '.acc{border:1px solid var(--divider-color);border-radius:12px;overflow:hidden;background:var(--card-background-color)}'
       + '.acc summary{cursor:pointer;padding:10px 12px;background:var(--secondary-background-color);font-weight:600;font-size:14px;color:var(--primary-text-color);user-select:none}'
       + '.acc-body{padding:12px;display:flex;flex-direction:column;gap:12px}'
-      + '.lvl-row{display:flex;align-items:center;gap:6px}'
+      + '.lvl-row{display:flex;align-items:center;gap:8px;border:1px solid var(--divider-color);border-radius:10px;padding:8px 10px;background:var(--secondary-background-color)}'
       + '.lvl-row ha-form{flex:1}'
+      + '.lvl-color{width:34px;height:34px;flex-shrink:0;border:1px solid var(--divider-color);border-radius:8px;padding:2px;background:none;cursor:pointer}'
       + '</style>'
       + '<div class="editor">'
       + '<ha-form id="title-form"></ha-form>'
@@ -751,8 +789,9 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       } else {
         delete this._config.peak_helper;
       }
-      this._fire(false);
+      this._queue();
     });
+    this._wireBuffered(titleForm);
 
     // Battery forms
     batteries.forEach((b, i) => {
@@ -765,6 +804,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       form.addEventListener('value-changed', ev => {
         this._applyBatteryForm(i, ev.detail.value || {});
       });
+      this._wireBuffered(form);
     });
 
     // Display switches
@@ -793,18 +833,26 @@ class BatteryCellMonitoringEditor extends HTMLElement {
         form.hass = this._hass;
         form.schema = [{ type: 'grid', name: '', schema: [
           { name: 'threshold', label: this._t('col_threshold'), selector: { number: { min: 0, max: 5000, mode: 'box' } } },
-          { name: 'color', label: this._t('col_color'), selector: { text: {} } },
           { name: 'text', label: this._t('col_text'), selector: { text: {} } },
         ]}];
-        form.data = { threshold: entry.threshold ?? 0, color: entry.color || '', text: entry[textKey] || '' };
+        form.data = { threshold: entry.threshold ?? 0, text: entry[textKey] || '' };
         form.computeLabel = s => s.label ?? s.name;
         form.addEventListener('value-changed', ev => {
           const v = ev.detail.value || {};
           entry.threshold = parseFloat(v.threshold) || 0;
-          entry.color = v.color || '';
           entry[textKey] = v.text || '';
-          this._fire(false);
+          this._queue();
         });
+        this._wireBuffered(form);
+      });
+    });
+    this.shadowRoot.querySelectorAll('input.lvl-color').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const list = inp.dataset.list === 'status' ? this._config.status_levels : this._config.warn_levels;
+        const entry = list[parseInt(inp.dataset.idx, 10)];
+        if (!entry) return;
+        entry.color = inp.value;
+        this._fire(false);
       });
     });
     this.shadowRoot.getElementById('add-status')?.addEventListener('click', () => {
