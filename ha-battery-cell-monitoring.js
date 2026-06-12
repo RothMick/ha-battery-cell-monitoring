@@ -590,12 +590,18 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const maxC  = hex(this._config.cell_max_color) || '#22c55e';
     const vMin = Math.min(...cells);
     const vMax = Math.max(...cells);
+    // Highlight min/max cells only when at most 3 cells share the value -
+    // otherwise the highlight carries no information.
+    const minCnt = cells.filter(v => v === vMin).length;
+    const maxCnt = cells.filter(v => v === vMax).length;
+    const markMin = vMax > vMin && minCnt <= 3;
+    const markMax = vMax > vMin && maxCnt <= 3;
     const bars = cells.map((v, i) => {
       const x    = i * (barW + gap);
       const top  = toY(v);
       const bot  = toY(yMin);
       const h    = Math.max(bot - top, 2);
-      const fill = (vMax > vMin && v === vMin) ? minC : (vMax > vMin && v === vMax) ? maxC : baseC;
+      const fill = (markMin && v === vMin) ? minC : (markMax && v === vMax) ? maxC : baseC;
       return '<rect x="' + x.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + barW + '" height="' + h.toFixed(1) + '" fill="' + fill + '" rx="2"/>';
     }).join('');
     const totalW = cells.length * (barW + gap) - gap;
