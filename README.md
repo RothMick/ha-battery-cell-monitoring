@@ -5,11 +5,11 @@ Home Assistant Lovelace custom card for monitoring per-cell voltages of home bat
 ## Features
 
 - **Cell bar chart** — all cells on a zoomed Y axis, outliers highlighted (yellow >20 mV, red >50 mV deviation from mean)
-- **Status badge** — color-coded spread status: green (<20 mV) / yellow (watch) / orange (balancing needed) / red (critical)
-- **Warning banner** — two levels with own thresholds: "Perform balancing" (orange) and "Deactivate battery" (red), dismissible (localStorage)
+- **Status badge** — color-coded spread status with freely configurable levels (threshold, color, label)
+- **Warning banner** — freely configurable levels (threshold, color, hint text), dismissible (localStorage)
 - **Stats row** — min / mean / max / spread
 - **Peak spread tracking** — highest observed spread is kept with a timestamp, reset button; stored in an `input_text` helper so the value is identical on all devices (falls back to localStorage when no helper exists)
-- **UI editor** — card title, status and warning thresholds, batteries (add / remove / reorder), entity stem with cell count and digits, display options via switches
+- **UI editor** — card title, batteries (add / remove / reorder), entity stem with cell count and digits, display options via switches; status and warning levels in collapsible sections, fully add/edit/delete
 - **Multiple batteries** in one card
 - **Localized** — English and German, follows the Home Assistant UI language
 - Works without template sensors — min/max/mean/spread are computed from the cell values when needed
@@ -45,11 +45,8 @@ batteries:
 |--------|------|---------|-------------|
 | `title` | string | – | Card heading |
 | `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | `input_text` helper storing the peaks as a JSON array ordered by display position: `[{"i":<battery id>,"s":<spread mV>,"t":<timestamp>}, ...]` |
-| `warn_thresholds.watch` | number | 20 | Status threshold yellow (mV) |
-| `warn_thresholds.balance` | number | 50 | Status threshold orange (mV) |
-| `warn_thresholds.critical` | number | 200 | Status threshold red (mV) |
-| `warn_levels.balancing` | number | 100 | Warning banner "Perform balancing" from (mV) |
-| `warn_levels.deactivate` | number | 350 | Warning banner "Deactivate battery" from (mV) |
+| `status_levels` | list | 20 yellow "Watch" / 50 orange "Balancing needed" / 200 red "Critical" | Status levels for badge and stats color, each `{threshold, color, label}`. Below the lowest threshold the badge shows green/"Good". Fully editable in the UI (add/edit/delete). |
+| `warn_levels` | list | 100 orange "Perform balancing" / 350 red "Deactivate battery" | Warning banner levels, each `{threshold, color, text}`. The highest matching level is shown. Fully editable in the UI. |
 
 ### Per battery
 

@@ -39,11 +39,12 @@ const BCM_TRANSLATIONS = {
     confirm_reset:    'Really reset the peak spread?',
     warn_balancing:   'Perform balancing',
     warn_deactivate:  'Deactivate battery',
-    th_yellow:        'Yellow from (mV)',
-    th_orange:        'Orange from (mV)',
-    th_red:           'Red from (mV)',
-    th_balancing:     'Balancing warning from (mV)',
-    th_deactivate:    'Deactivation warning from (mV)',
+    status_settings:  'Status settings',
+    warn_settings:    'Warning hints',
+    col_threshold:    'Threshold (mV)',
+    col_color:        'Color',
+    col_text:         'Text',
+    add_entry:        '+ Add entry',
     battery:          'Battery',
     card_title:       'Card title',
     peak_helper:      'Peak helper (input_text)',
@@ -77,11 +78,12 @@ const BCM_TRANSLATIONS = {
     confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
     warn_balancing:   'Balancing durchführen',
     warn_deactivate:  'Batterie deaktivieren',
-    th_yellow:        'Gelb ab (mV)',
-    th_orange:        'Orange ab (mV)',
-    th_red:           'Rot ab (mV)',
-    th_balancing:     'Balancing-Warnung ab (mV)',
-    th_deactivate:    'Deaktivierungs-Warnung ab (mV)',
+    status_settings:  'Status Einstellungen',
+    warn_settings:    'Warnhinweise',
+    col_threshold:    'Schwellwert (mV)',
+    col_color:        'Farbe',
+    col_text:         'Text',
+    add_entry:        '+ Eintrag hinzufügen',
     battery:          'Batterie',
     card_title:       'Titel der Kachel',
     peak_helper:      'Peak-Helfer (input_text)',
@@ -133,10 +135,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       balance:  config.warn_thresholds?.balance  ?? 50,
       critical: config.warn_thresholds?.critical ?? 200,
     };
-    this._warnLevels = {
-      balancing:  config.warn_levels?.balancing  ?? 100,
-      deactivate: config.warn_levels?.deactivate ?? 350,
-    };
+
   }
 
   set hass(hass) {
@@ -180,18 +179,47 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return battery.id || battery.entity_prefix || battery.name || 'battery';
   }
 
+  // Status levels: configurable list of {threshold, color, label}.
+  // Below the lowest threshold the base status (green/Good) applies.
+  _statusLevels() {
+    const cfg = this._config.status_levels;
+    if (Array.isArray(cfg) && cfg.length) return cfg;
+    return [
+      { threshold: this._thresholds.watch,    color: '#eab308', label: this._t('status_watch') },
+      { threshold: this._thresholds.balance,  color: '#f97316', label: this._t('status_balance') },
+      { threshold: this._thresholds.critical, color: '#ef4444', label: this._t('status_critical') },
+    ];
+  }
+
+  // Warning levels: configurable list of {threshold, color, text}.
+  _warnList() {
+    const cfg = this._config.warn_levels;
+    if (Array.isArray(cfg) && cfg.length) return cfg;
+    const legacy = (cfg && typeof cfg === 'object') ? cfg : {};
+    return [
+      { threshold: legacy.balancing  ?? 100, color: '#f97316', text: this._t('warn_balancing') },
+      { threshold: legacy.deactivate ?? 350, color: '#ef4444', text: this._t('warn_deactivate') },
+    ];
+  }
+
+  // Highest matching level for the given spread, or null.
+  _matchLevel(levels, mv) {
+    let best = null;
+    for (const l of levels) {
+      const th = parseFloat(l.threshold);
+      if (!isNaN(th) && mv >= th && (best === null || th > parseFloat(best.threshold))) best = l;
+    }
+    return best;
+  }
+
   _spreadColor(mv) {
-    if (mv > this._thresholds.critical) return '#ef4444';
-    if (mv > this._thresholds.balance)  return '#f97316';
-    if (mv > this._thresholds.watch)    return '#eab308';
-    return '#22c55e';
+    const l = this._matchLevel(this._statusLevels(), mv);
+    return l ? (l.color || '#22c55e') : '#22c55e';
   }
 
   _spreadLabel(mv) {
-    if (mv > this._thresholds.critical) return this._t('status_critical');
-    if (mv > this._thresholds.balance)  return this._t('status_balance');
-    if (mv > this._thresholds.watch)    return this._t('status_watch');
-    return this._t('status_good');
+    const l = this._matchLevel(this._statusLevels(), mv);
+    return l ? (l.label || '') : this._t('status_good');
   }
 
   _peakKey(key)    { return 'bcm_peak_' + key; }
@@ -361,9 +389,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
-    const wl = this._warnLevels;
-    const showWarn = showStatus && spreadMv >= wl.balancing && !this._isDismissed(key, spreadMv);
-    const warnUrgent = spreadMv >= wl.deactivate;
+    const warnLvl = this._matchLevel(this._warnList(), spreadMv);
+    const showWarn = showStatus && !!warnLvl && !this._isDismissed(key, spreadMv);
 
     // The status badge rates the peak spread (falls back to the current
     // spread until a peak has been recorded).
@@ -374,10 +401,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
       ? '<span class="spread-badge" style="color:' + badgeColor + ';border-color:' + badgeColor + ';">' + badgeMv + ' mV – ' + badgeLabel + '</span>'
       : '';
 
-    const warnColor = warnUrgent ? '#ef4444' : '#f97316';
-    const warnText = warnUrgent ? this._t('warn_deactivate') : this._t('warn_balancing');
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + warnColor + ';background:' + warnColor + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + warnText + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';background:' + warnLvl.color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -490,6 +515,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._editing = false;
+    this._open = { status: false, warn: false };
   }
 
   set hass(hass) {
@@ -498,6 +524,32 @@ class BatteryCellMonitoringEditor extends HTMLElement {
   }
 
   _t(key) { return bcmT(this._hass, key); }
+
+  // Materialize the level lists in the config so they can be edited.
+  _ensureLevels() {
+    if (!Array.isArray(this._config.status_levels)) {
+      const th = this._config.warn_thresholds || {};
+      this._config.status_levels = [
+        { threshold: th.watch ?? 20,     color: '#eab308', label: this._t('status_watch') },
+        { threshold: th.balance ?? 50,   color: '#f97316', label: this._t('status_balance') },
+        { threshold: th.critical ?? 200, color: '#ef4444', label: this._t('status_critical') },
+      ];
+    }
+    if (!Array.isArray(this._config.warn_levels)) {
+      const wl = (this._config.warn_levels && typeof this._config.warn_levels === 'object') ? this._config.warn_levels : {};
+      this._config.warn_levels = [
+        { threshold: wl.balancing ?? 100,  color: '#f97316', text: this._t('warn_balancing') },
+        { threshold: wl.deactivate ?? 350, color: '#ef4444', text: this._t('warn_deactivate') },
+      ];
+    }
+  }
+
+  _levelRows(list, listName) {
+    return list.map((_, i) =>
+      '<div class="lvl-row"><ha-form id="' + listName + '-lvl-' + i + '"></ha-form>'
+      + '<button class="icon-btn danger lvl-del" data-list="' + listName + '" data-idx="' + i + '" title="' + this._t('remove') + '">✕</button></div>'
+    ).join('');
+  }
 
   setConfig(config) {
     this._config = JSON.parse(JSON.stringify(config || {}));
@@ -618,6 +670,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
   }
 
   _render() {
+    this._ensureLevels();
     const batteries = this._config.batteries;
 
     const batteryBlocks = batteries.map((b, i) => {
@@ -655,39 +708,39 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '.opt-label{font-size:14px;color:var(--primary-text-color)}'
       + '.add-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;border:1px dashed var(--divider-color);border-radius:12px;background:none;cursor:pointer;color:var(--primary-color);font-size:14px;font-weight:500}'
       + '.add-btn:hover{background:var(--secondary-background-color)}'
+      + '.add-btn.small{padding:6px;font-size:13px}'
+      + '.acc{border:1px solid var(--divider-color);border-radius:12px;overflow:hidden;background:var(--card-background-color)}'
+      + '.acc summary{cursor:pointer;padding:10px 12px;background:var(--secondary-background-color);font-weight:600;font-size:14px;color:var(--primary-text-color);user-select:none}'
+      + '.acc-body{padding:12px;display:flex;flex-direction:column;gap:12px}'
+      + '.lvl-row{display:flex;align-items:center;gap:6px}'
+      + '.lvl-row ha-form{flex:1}'
       + '</style>'
       + '<div class="editor">'
       + '<ha-form id="title-form"></ha-form>'
       + batteryBlocks
       + '<button class="add-btn" id="add-battery">' + this._t('add_battery') + '</button>'
+      + '<details class="acc" id="acc-status"' + (this._open.status ? ' open' : '') + '>'
+      + '<summary>' + this._t('status_settings') + '</summary>'
+      + '<div class="acc-body">' + this._levelRows(this._config.status_levels, 'status')
+      + '<button class="add-btn small" id="add-status">' + this._t('add_entry') + '</button></div>'
+      + '</details>'
+      + '<details class="acc" id="acc-warn"' + (this._open.warn ? ' open' : '') + '>'
+      + '<summary>' + this._t('warn_settings') + '</summary>'
+      + '<div class="acc-body">' + this._levelRows(this._config.warn_levels, 'warn')
+      + '<button class="add-btn small" id="add-warn">' + this._t('add_entry') + '</button></div>'
+      + '</details>'
       + '</div>';
 
     // Title form
     const titleForm = this.shadowRoot.getElementById('title-form');
     titleForm.hass = this._hass;
-    const th = this._config.warn_thresholds || {};
-    const wl = this._config.warn_levels || {};
     titleForm.schema = [
       { name: 'title', label: this._t('card_title'), selector: { text: {} } },
       { name: 'peak_helper', label: this._t('peak_helper'), selector: { entity: { domain: 'input_text' } } },
-      { type: 'grid', name: '', schema: [
-        { name: 'th_yellow', label: this._t('th_yellow'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
-        { name: 'th_orange', label: this._t('th_orange'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
-        { name: 'th_red', label: this._t('th_red'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
-      ]},
-      { type: 'grid', name: '', schema: [
-        { name: 'th_balancing', label: this._t('th_balancing'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
-        { name: 'th_deactivate', label: this._t('th_deactivate'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
-      ]},
     ];
     titleForm.data = {
       title: this._config.title || '',
       peak_helper: this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks',
-      th_yellow:     th.watch    ?? 20,
-      th_orange:     th.balance  ?? 50,
-      th_red:        th.critical ?? 200,
-      th_balancing:  wl.balancing  ?? 100,
-      th_deactivate: wl.deactivate ?? 350,
     };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
@@ -698,15 +751,6 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       } else {
         delete this._config.peak_helper;
       }
-      this._config.warn_thresholds = {
-        watch:    parseInt(v.th_yellow, 10) || 20,
-        balance:  parseInt(v.th_orange, 10) || 50,
-        critical: parseInt(v.th_red, 10)    || 200,
-      };
-      this._config.warn_levels = {
-        balancing:  parseInt(v.th_balancing, 10)  || 100,
-        deactivate: parseInt(v.th_deactivate, 10) || 350,
-      };
       this._fire(false);
     });
 
@@ -740,6 +784,50 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       });
     });
     this.shadowRoot.getElementById('add-battery')?.addEventListener('click', () => this._addBattery());
+
+    // Level lists (status + warnings)
+    [['status', this._config.status_levels, 'label'], ['warn', this._config.warn_levels, 'text']].forEach(([listName, list, textKey]) => {
+      list.forEach((entry, i) => {
+        const form = this.shadowRoot.getElementById(listName + '-lvl-' + i);
+        if (!form) return;
+        form.hass = this._hass;
+        form.schema = [{ type: 'grid', name: '', schema: [
+          { name: 'threshold', label: this._t('col_threshold'), selector: { number: { min: 0, max: 5000, mode: 'box' } } },
+          { name: 'color', label: this._t('col_color'), selector: { text: {} } },
+          { name: 'text', label: this._t('col_text'), selector: { text: {} } },
+        ]}];
+        form.data = { threshold: entry.threshold ?? 0, color: entry.color || '', text: entry[textKey] || '' };
+        form.computeLabel = s => s.label ?? s.name;
+        form.addEventListener('value-changed', ev => {
+          const v = ev.detail.value || {};
+          entry.threshold = parseFloat(v.threshold) || 0;
+          entry.color = v.color || '';
+          entry[textKey] = v.text || '';
+          this._fire(false);
+        });
+      });
+    });
+    this.shadowRoot.getElementById('add-status')?.addEventListener('click', () => {
+      this._config.status_levels.push({ threshold: 0, color: '#eab308', label: '' });
+      this._fire(true);
+    });
+    this.shadowRoot.getElementById('add-warn')?.addEventListener('click', () => {
+      this._config.warn_levels.push({ threshold: 0, color: '#f97316', text: '' });
+      this._fire(true);
+    });
+    this.shadowRoot.querySelectorAll('.lvl-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const list = btn.dataset.list === 'status' ? this._config.status_levels : this._config.warn_levels;
+        list.splice(parseInt(btn.dataset.idx, 10), 1);
+        this._fire(true);
+      });
+    });
+    this.shadowRoot.querySelectorAll('details.acc').forEach(d => {
+      d.addEventListener('toggle', () => {
+        if (d.id === 'acc-status') this._open.status = d.open;
+        if (d.id === 'acc-warn') this._open.warn = d.open;
+      });
+    });
   }
 }
 
