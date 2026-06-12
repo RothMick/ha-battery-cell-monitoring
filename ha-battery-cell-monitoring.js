@@ -465,7 +465,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';background:' + warnLvl.color + '18;"><span class="warn-icon">⚠</span><span class="warn-text" style="color:' + warnLvl.color + ';">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';background:' + warnLvl.color + '18;"><span class="warn-icon" style="color:' + warnLvl.color + ';">⚠</span><span class="warn-text" style="color:' + warnLvl.color + ';">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -532,8 +532,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.peak-reset:hover{color:var(--primary-text-color)}'
       + '.divider{height:1px;background:var(--divider-color);margin:14px 0}'
       + '.warn-banner{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid;margin-bottom:10px}'
-      + '.warn-icon{font-size:15px;flex-shrink:0}'
-      + '.warn-text{flex:1;font-size:14px;font-weight:500;color:var(--primary-text-color)}'
+      + '.warn-icon{font-size:18px;flex-shrink:0}'
+      + '.warn-text{flex:1;font-size:16px;font-weight:600}'
       + '.warn-dismiss{background:none;border:none;cursor:pointer;padding:0 2px;color:var(--secondary-text-color);font-size:14px;line-height:1}'
       + '.warn-dismiss:hover{color:var(--primary-text-color)}'
       + '.unavailable{font-size:13px;font-style:italic;color:var(--secondary-text-color)}'
