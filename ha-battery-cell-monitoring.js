@@ -508,19 +508,40 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   // Builds an SVG path from [x,y] points; optionally smoothed with
-  // Catmull-Rom derived cubic Beziers. lead is 'M' (new path) or 'L'
-  // (continue an existing path, used for the back side of the band).
+  // monotone cubic interpolation (Fritsch-Carlson, like d3 curveMonotoneX).
+  // Monotone tangents cannot overshoot the data range, so stepped sensor
+  // history stays inside the min/max envelope. lead is 'M' (new path) or
+  // 'L' (continue an existing path, used for the back side of the band).
   _histPath(pts, smooth, lead) {
     const f = n => n.toFixed(1);
     if (!smooth || pts.length < 3) {
       return pts.map((p, i) => (i ? 'L' : lead) + f(p[0]) + ',' + f(p[1])).join(' ');
     }
+    const n = pts.length;
+    const dx = [], slope = [];
+    for (let i = 0; i < n - 1; i++) {
+      dx[i] = pts[i + 1][0] - pts[i][0];
+      slope[i] = dx[i] !== 0 ? (pts[i + 1][1] - pts[i][1]) / dx[i] : 0;
+    }
+    const tan = new Array(n);
+    tan[0] = slope[0];
+    tan[n - 1] = slope[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+      if (slope[i - 1] * slope[i] <= 0) {
+        tan[i] = 0; // local extremum: flat tangent prevents overshoot
+      } else {
+        const w1 = 2 * dx[i] + dx[i - 1];
+        const w2 = dx[i] + 2 * dx[i - 1];
+        tan[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+      }
+    }
     let d = lead + f(pts[0][0]) + ',' + f(pts[0][1]);
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
-      const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
-      const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
-      d += ' C' + f(c1x) + ',' + f(c1y) + ' ' + f(c2x) + ',' + f(c2y) + ' ' + f(p2[0]) + ',' + f(p2[1]);
+    for (let i = 0; i < n - 1; i++) {
+      const x1 = pts[i][0], y1 = pts[i][1], x2 = pts[i + 1][0], y2 = pts[i + 1][1];
+      const h = dx[i] / 3;
+      d += ' C' + f(x1 + h) + ',' + f(y1 + tan[i] * h)
+         + ' ' + f(x2 - h) + ',' + f(y2 - tan[i + 1] * h)
+         + ' ' + f(x2) + ',' + f(y2);
     }
     return d;
   }
