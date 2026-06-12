@@ -605,7 +605,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const opts = { hour: '2-digit', minute: '2-digit' };
     if (lc.time_format === 'am_pm') opts.hour12 = true;
     else if (lc.time_format === '24_hour') opts.hour12 = false;
-    return new Date(ts).toLocaleTimeString(lc.language || 'en', opts);
+    return new Date(ts).toLocaleTimeString(lc.language || 'en', opts) + ' h';
   }
 
   // One closed SVG path: forward along the max curve, backward along the
