@@ -1,9 +1,12 @@
 type: custom:ha-battery-cell-monitoring
 title: Cell voltage analysis
-warn_thresholds:
-  watch: 20      # mV - yellow
-  balance: 50    # mV - orange
-  critical: 200  # mV - red
+warn_thresholds:   # status badge colors
+  watch: 20        # mV - yellow
+  balance: 50      # mV - orange
+  critical: 200    # mV - red
+warn_levels:       # warning banner
+  balancing: 100   # mV - "Perform balancing"
+  deactivate: 350  # mV - "Deactivate battery"
 batteries:
   - id: 1234
     name: B2500 1234 (West)

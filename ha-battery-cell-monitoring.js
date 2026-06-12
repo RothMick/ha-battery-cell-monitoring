@@ -37,6 +37,13 @@ const BCM_TRANSLATIONS = {
     dismiss:          'Dismiss',
     reset_peak:       'Reset peak',
     confirm_reset:    'Really reset the peak spread?',
+    warn_balancing:   'Perform balancing',
+    warn_deactivate:  'Deactivate battery',
+    th_yellow:        'Yellow from (mV)',
+    th_orange:        'Orange from (mV)',
+    th_red:           'Red from (mV)',
+    th_balancing:     'Balancing warning from (mV)',
+    th_deactivate:    'Deactivation warning from (mV)',
     battery:          'Battery',
     card_title:       'Card title',
     peak_helper:      'Peak helper (input_text)',
@@ -68,6 +75,13 @@ const BCM_TRANSLATIONS = {
     dismiss:          'Schließen',
     reset_peak:       'Peak zurücksetzen',
     confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
+    warn_balancing:   'Balancing durchführen',
+    warn_deactivate:  'Batterie deaktivieren',
+    th_yellow:        'Gelb ab (mV)',
+    th_orange:        'Orange ab (mV)',
+    th_red:           'Rot ab (mV)',
+    th_balancing:     'Balancing-Warnung ab (mV)',
+    th_deactivate:    'Deaktivierungs-Warnung ab (mV)',
     battery:          'Batterie',
     card_title:       'Titel der Kachel',
     peak_helper:      'Peak-Helfer (input_text)',
@@ -118,6 +132,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
       watch:    config.warn_thresholds?.watch    ?? 20,
       balance:  config.warn_thresholds?.balance  ?? 50,
       critical: config.warn_thresholds?.critical ?? 200,
+    };
+    this._warnLevels = {
+      balancing:  config.warn_levels?.balancing  ?? 100,
+      deactivate: config.warn_levels?.deactivate ?? 350,
     };
   }
 
@@ -343,7 +361,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
-    const showWarn = showStatus && spreadMv > this._thresholds.watch && !this._isDismissed(key, spreadMv);
+    const wl = this._warnLevels;
+    const showWarn = showStatus && spreadMv >= wl.balancing && !this._isDismissed(key, spreadMv);
+    const warnUrgent = spreadMv >= wl.deactivate;
 
     // The status badge rates the peak spread (falls back to the current
     // spread until a peak has been recorded).
@@ -354,8 +374,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
       ? '<span class="spread-badge" style="color:' + badgeColor + ';border-color:' + badgeColor + ';">' + badgeMv + ' mV – ' + badgeLabel + '</span>'
       : '';
 
+    const warnColor = warnUrgent ? '#ef4444' : '#f97316';
+    const warnText = warnUrgent ? this._t('warn_deactivate') : this._t('warn_balancing');
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._spreadLabel(spreadMv) + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + warnColor + ';background:' + warnColor + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + warnText + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -643,13 +665,29 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     // Title form
     const titleForm = this.shadowRoot.getElementById('title-form');
     titleForm.hass = this._hass;
+    const th = this._config.warn_thresholds || {};
+    const wl = this._config.warn_levels || {};
     titleForm.schema = [
       { name: 'title', label: this._t('card_title'), selector: { text: {} } },
       { name: 'peak_helper', label: this._t('peak_helper'), selector: { entity: { domain: 'input_text' } } },
+      { type: 'grid', name: '', schema: [
+        { name: 'th_yellow', label: this._t('th_yellow'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
+        { name: 'th_orange', label: this._t('th_orange'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
+        { name: 'th_red', label: this._t('th_red'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
+      ]},
+      { type: 'grid', name: '', schema: [
+        { name: 'th_balancing', label: this._t('th_balancing'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
+        { name: 'th_deactivate', label: this._t('th_deactivate'), selector: { number: { min: 1, max: 1000, mode: 'box' } } },
+      ]},
     ];
     titleForm.data = {
       title: this._config.title || '',
       peak_helper: this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks',
+      th_yellow:     th.watch    ?? 20,
+      th_orange:     th.balance  ?? 50,
+      th_red:        th.critical ?? 200,
+      th_balancing:  wl.balancing  ?? 100,
+      th_deactivate: wl.deactivate ?? 350,
     };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
@@ -660,6 +698,15 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       } else {
         delete this._config.peak_helper;
       }
+      this._config.warn_thresholds = {
+        watch:    parseInt(v.th_yellow, 10) || 20,
+        balance:  parseInt(v.th_orange, 10) || 50,
+        critical: parseInt(v.th_red, 10)    || 200,
+      };
+      this._config.warn_levels = {
+        balancing:  parseInt(v.th_balancing, 10)  || 100,
+        deactivate: parseInt(v.th_deactivate, 10) || 350,
+      };
       this._fire(false);
     });
 
