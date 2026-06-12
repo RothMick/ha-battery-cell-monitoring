@@ -45,6 +45,7 @@ const BCM_TRANSLATIONS = {
     warn_balancing:   'Perform balancing',
     warn_deactivate:  'Deactivate battery',
     status_settings:  'Status settings',
+    standard:         'Default',
     warn_settings:    'Warning hints',
     col_threshold:    'Threshold (mV)',
     col_color:        'Color',
@@ -89,6 +90,7 @@ const BCM_TRANSLATIONS = {
     warn_balancing:   'Balancing durchführen',
     warn_deactivate:  'Batterie deaktivieren',
     status_settings:  'Status Einstellungen',
+    standard:         'Standard',
     warn_settings:    'Warnhinweise',
     col_threshold:    'Schwellwert (mV)',
     col_color:        'Farbe',
@@ -222,9 +224,13 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return best;
   }
 
+  _baseColor() {
+    return this._config.status_base_color || '#22c55e';
+  }
+
   _spreadColor(mv) {
     const l = this._matchLevel(this._statusLevels(), mv);
-    return l ? (l.color || '#22c55e') : '#22c55e';
+    return l ? (l.color || this._baseColor()) : this._baseColor();
   }
 
   _spreadLabel(mv) {
@@ -487,7 +493,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     let peakHtml = '';
     if (showPeak) {
-      const peakColor = peak ? this._spreadColor(peak.spread) : '#22c55e';
+      const peakColor = peak ? this._spreadColor(peak.spread) : this._baseColor();
       const peakVal   = peak ? peak.spread + ' mV' : '-';
       const peakTs    = peak ? '<span class="peak-ts">' + peak.ts + '</span>' : '';
       const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
@@ -820,6 +826,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '.acc-body{padding:12px;display:flex;flex-direction:column;gap:12px}'
       + '.lvl-row{display:flex;align-items:center;gap:8px;border:1px solid var(--divider-color);border-radius:10px;padding:8px 10px;background:var(--secondary-background-color)}'
       + '.lvl-row ha-form{flex:1}'
+      + '.base-label{flex:1;font-size:14px;font-weight:500;color:var(--primary-text-color)}'
       + '.lvl-color{width:34px;height:34px;flex-shrink:0;border:1px solid var(--divider-color);border-radius:8px;padding:2px;background:none;cursor:pointer}'
       + '</style>'
       + '<div class="editor">'
@@ -828,7 +835,12 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<button class="add-btn" id="add-battery">' + this._t('add_battery') + '</button>'
       + '<details class="acc" id="acc-status"' + (this._open.status ? ' open' : '') + '>'
       + '<summary>' + this._t('status_settings') + '</summary>'
-      + '<div class="acc-body">' + this._levelRows(this._config.status_levels, 'status')
+      + '<div class="acc-body">'
+      + '<div class="lvl-row base">'
+      + '<span class="base-label">' + this._t('standard') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="base" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.status_base_color || '') ? this._config.status_base_color : '#22c55e') + '" title="' + this._t('col_color') + '">'
+      + '</div>'
+      + this._levelRows(this._config.status_levels, 'status')
       + '<button class="add-btn small" id="add-status">' + this._t('add_entry') + '</button></div>'
       + '</details>'
       + '<details class="acc" id="acc-warn"' + (this._open.warn ? ' open' : '') + '>'
@@ -917,6 +929,11 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll('input.lvl-color').forEach(inp => {
       inp.addEventListener('change', () => {
+        if (inp.dataset.list === 'base') {
+          this._config.status_base_color = inp.value;
+          this._fire(false);
+          return;
+        }
         const list = inp.dataset.list === 'status' ? this._config.status_levels : this._config.warn_levels;
         const entry = list[parseInt(inp.dataset.idx, 10)];
         if (!entry) return;
