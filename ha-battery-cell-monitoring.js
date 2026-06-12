@@ -64,7 +64,10 @@ const BCM_TRANSLATIONS = {
     opt_stats:        'Values (min/mean/max/spread)',
     opt_peak:         'Spread peak with reset',
     opt_history:      'History chart',
-    history_hours:    'History window (hours)',
+    hist_minutes:     'Window (minutes)',
+    hist_band:        'Band (min-max)',
+    hist_line:        'Mean line',
+    hist_smooth:      'Smoothed curve',
     add_battery:      '+ Add battery',
     move_up:          'Move up',
     move_down:        'Move down',
@@ -111,7 +114,10 @@ const BCM_TRANSLATIONS = {
     opt_stats:        'Werte (Min/Mean/Max/Spread)',
     opt_peak:         'Spread-Peak mit Reset',
     opt_history:      'Verlaufskurve',
-    history_hours:    'Zeitfenster Verlauf (Stunden)',
+    hist_minutes:     'Zeitfenster (Minuten)',
+    hist_band:        'Fläche (Min-Max)',
+    hist_line:        'Mittelwert-Linie',
+    hist_smooth:      'Geglättete Kurve',
     add_battery:      '+ Batterie hinzufügen',
     move_up:          'Nach oben',
     move_down:        'Nach unten',
@@ -432,7 +438,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const wanted = this._config.batteries.filter(b => b.show_history === true);
     if (!wanted.length) return;
     this._histPending = true;
-    const hours = parseFloat(this._config.history_hours) || 1;
+    const minutes = parseFloat(this._config.history_minutes)
+      || (parseFloat(this._config.history_hours) || 1) * 60;
+    const hours = minutes / 60;
     try {
       for (const b of wanted) {
         try {
@@ -493,6 +501,24 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return { points, start: start.getTime(), end: Date.now() };
   }
 
+  // Builds an SVG path from [x,y] points; optionally smoothed with
+  // Catmull-Rom derived cubic Beziers. lead is 'M' (new path) or 'L'
+  // (continue an existing path, used for the back side of the band).
+  _histPath(pts, smooth, lead) {
+    const f = n => n.toFixed(1);
+    if (!smooth || pts.length < 3) {
+      return pts.map((p, i) => (i ? 'L' : lead) + f(p[0]) + ',' + f(p[1])).join(' ');
+    }
+    let d = lead + f(pts[0][0]) + ',' + f(pts[0][1]);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ' C' + f(c1x) + ',' + f(c1y) + ' ' + f(c2x) + ',' + f(c2y) + ' ' + f(p2[0]) + ',' + f(p2[1]);
+    }
+    return d;
+  }
+
   // One closed SVG path: forward along the max curve, backward along the
   // min curve - the fill covers exactly the band between both curves.
   _renderHistory(battery) {
@@ -506,12 +532,17 @@ class BatteryCellMonitoringCard extends HTMLElement {
     vMin -= vPad; vMax += vPad;
     const x = t => padL + (t - h.start) / (h.end - h.start || 1) * (W - padL - padR);
     const y = v => H - padB - (v - vMin) / (vMax - vMin || 0.001) * (H - padT - padB);
-    const fwd = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.mx).toFixed(1)).join(' ');
-    const back = pts.slice().reverse().map(p => 'L' + x(p.t).toFixed(1) + ',' + y(p.mn).toFixed(1)).join(' ');
-    const meanPath = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.mean).toFixed(1)).join(' ');
+    const smooth = this._config.history_smooth === true;
+    const bandHex = /^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6';
+    const lineColor = /^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : 'var(--primary-text-color)';
+    const maxPts  = pts.map(p => [x(p.t), y(p.mx)]);
+    const minPts  = pts.slice().reverse().map(p => [x(p.t), y(p.mn)]);
+    const meanPts = pts.map(p => [x(p.t), y(p.mean)]);
+    const band = this._histPath(maxPts, smooth, 'M') + ' ' + this._histPath(minPts, smooth, 'L') + ' Z';
+    const meanPath = this._histPath(meanPts, smooth, 'M');
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
-      + '<path d="' + fwd + ' ' + back + ' Z" fill="rgba(59,130,246,0.30)" stroke="none"/>'
-      + '<path d="' + meanPath + '" fill="none" stroke="var(--primary-text-color)" stroke-width="1.5"/>'
+      + '<path d="' + band + '" fill="' + bandHex + '4D" stroke="none"/>'
+      + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5"/>'
       + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + vMax.toFixed(3) + '</text>'
       + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + vMin.toFixed(3) + '</text>'
       + '</svg>';
@@ -702,7 +733,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._hass = null;
     this._editing = false;
     this._pending = false;
-    this._open = { status: false, warn: false };
+    this._open = { status: false, warn: false, hist: false };
   }
 
   set hass(hass) {
@@ -961,6 +992,18 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<div class="acc-body">' + this._levelRows(this._config.warn_levels, 'warn')
       + '<button class="add-btn small" id="add-warn">' + this._t('add_entry') + '</button></div>'
       + '</details>'
+      + '<details class="acc" id="acc-hist"' + (this._open.hist ? ' open' : '') + '>'
+      + '<summary>' + this._t('opt_history') + '</summary>'
+      + '<div class="acc-body">'
+      + '<ha-form id="hist-form"></ha-form>'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('hist_band') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="histband" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6') + '" title="' + this._t('col_color') + '"></div>'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('hist_line') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="histline" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : '#ffffff') + '" title="' + this._t('col_color') + '"></div>'
+      + '<div class="opt-row"><ha-switch id="hist-smooth"' + (this._config.history_smooth === true ? ' checked' : '') + '></ha-switch>'
+      + '<span class="opt-label">' + this._t('hist_smooth') + '</span></div>'
+      + '</div>'
+      + '</details>'
       + '</div>';
 
     // Title form
@@ -969,12 +1012,10 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     titleForm.schema = [
       { name: 'title', label: this._t('card_title'), selector: { text: {} } },
       { name: 'peak_helper', label: this._t('peak_helper'), selector: { entity: { domain: 'input_text' } } },
-      { name: 'history_hours', label: this._t('history_hours'), selector: { number: { min: 0.5, max: 48, step: 0.5, mode: 'box' } } },
     ];
     titleForm.data = {
       title: this._config.title || '',
       peak_helper: this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks',
-      history_hours: this._config.history_hours ?? 1,
     };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
@@ -985,9 +1026,6 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       } else {
         delete this._config.peak_helper;
       }
-      const hh = parseFloat(v.history_hours);
-      if (hh > 0 && hh !== 1) this._config.history_hours = hh;
-      else delete this._config.history_hours;
       this._queue();
     });
     this._wireBuffered(titleForm);
@@ -1045,10 +1083,40 @@ class BatteryCellMonitoringEditor extends HTMLElement {
         this._wireBuffered(form);
       });
     });
+    const histForm = this.shadowRoot.getElementById('hist-form');
+    if (histForm) {
+      histForm.hass = this._hass;
+      histForm.schema = [{ name: 'minutes', label: this._t('hist_minutes'), selector: { number: { min: 5, max: 2880, step: 5, mode: 'box' } } }];
+      const legacyMin = (parseFloat(this._config.history_hours) || 0) * 60;
+      histForm.data = { minutes: this._config.history_minutes ?? (legacyMin || 60) };
+      histForm.computeLabel = s => s.label ?? s.name;
+      histForm.addEventListener('value-changed', ev => {
+        const m = parseFloat(ev.detail.value?.minutes);
+        if (m > 0 && m !== 60) this._config.history_minutes = m;
+        else delete this._config.history_minutes;
+        delete this._config.history_hours; // migrated to minutes
+        this._queue();
+      });
+      this._wireBuffered(histForm);
+    }
+    this.shadowRoot.getElementById('hist-smooth')?.addEventListener('change', ev => {
+      this._config.history_smooth = ev.target.checked;
+      this._fire(false);
+    });
     this.shadowRoot.querySelectorAll('input.lvl-color').forEach(inp => {
       inp.addEventListener('change', () => {
         if (inp.dataset.list === 'base') {
           this._config.status_base_color = inp.value;
+          this._fire(false);
+          return;
+        }
+        if (inp.dataset.list === 'histband') {
+          this._config.history_band_color = inp.value;
+          this._fire(false);
+          return;
+        }
+        if (inp.dataset.list === 'histline') {
+          this._config.history_line_color = inp.value;
           this._fire(false);
           return;
         }
@@ -1078,6 +1146,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       d.addEventListener('toggle', () => {
         if (d.id === 'acc-status') this._open.status = d.open;
         if (d.id === 'acc-warn') this._open.warn = d.open;
+        if (d.id === 'acc-hist') this._open.hist = d.open;
       });
     });
   }
