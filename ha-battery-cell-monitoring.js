@@ -546,20 +546,45 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return d;
   }
 
+  // Aggregates raw history points into n time buckets. Smoothing the data
+  // before drawing is what makes the curve visibly smooth - stepped sensor
+  // history smoothed only at path level looks identical to the raw line.
+  // The envelope stays honest: per bucket min stays min and max stays max.
+  _bucketPoints(points, start, end, n) {
+    const span = end - start || 1;
+    const buckets = new Array(n);
+    for (const p of points) {
+      const idx = Math.min(n - 1, Math.max(0, Math.floor((p.t - start) / span * n)));
+      const b = buckets[idx] || (buckets[idx] = { mn: Infinity, mx: -Infinity, sum: 0, cnt: 0 });
+      if (p.mn < b.mn) b.mn = p.mn;
+      if (p.mx > b.mx) b.mx = p.mx;
+      b.sum += p.mean;
+      b.cnt++;
+    }
+    const out = [];
+    buckets.forEach((b, i) => {
+      if (!b) return;
+      out.push({ t: start + (i + 0.5) / n * span, mn: b.mn, mx: b.mx, mean: b.sum / b.cnt });
+    });
+    return out;
+  }
+
   // One closed SVG path: forward along the max curve, backward along the
   // min curve - the fill covers exactly the band between both curves.
   _renderHistory(battery) {
     const h = this._histories?.[this._batteryKey(battery)];
     if (!h || !h.points || h.points.length < 2) return '';
     const W = 500, H = 110, padL = 38, padR = 4, padT = 6, padB = 6;
-    const pts = h.points;
+    const doSmooth = this._config.history_smooth === true;
+    const pts = doSmooth ? this._bucketPoints(h.points, h.start, h.end, 80) : h.points;
+    if (pts.length < 2) return '';
     let vMin = Infinity, vMax = -Infinity;
     pts.forEach(p => { if (p.mn < vMin) vMin = p.mn; if (p.mx > vMax) vMax = p.mx; });
     const vPad = Math.max((vMax - vMin) * 0.1, 0.002);
     vMin -= vPad; vMax += vPad;
     const x = t => padL + (t - h.start) / (h.end - h.start || 1) * (W - padL - padR);
     const y = v => H - padB - (v - vMin) / (vMax - vMin || 0.001) * (H - padT - padB);
-    const smooth = this._config.history_smooth === true;
+    const smooth = doSmooth;
     const bandHex = /^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6';
     const lineColor = /^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : 'var(--primary-text-color)';
     const maxPts  = pts.map(p => [x(p.t), y(p.mx)]);
