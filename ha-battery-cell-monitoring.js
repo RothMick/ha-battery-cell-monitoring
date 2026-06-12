@@ -599,12 +599,21 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return out;
   }
 
+  // Hour:minute label following the HA display settings (12h/24h).
+  _fmtTime(ts) {
+    const lc = this._hass?.locale || {};
+    const opts = { hour: '2-digit', minute: '2-digit' };
+    if (lc.time_format === 'am_pm') opts.hour12 = true;
+    else if (lc.time_format === '24_hour') opts.hour12 = false;
+    return new Date(ts).toLocaleTimeString(lc.language || 'en', opts);
+  }
+
   // One closed SVG path: forward along the max curve, backward along the
   // min curve - the fill covers exactly the band between both curves.
   _renderHistory(battery) {
     const h = this._histories?.[this._batteryKey(battery)];
     if (!h || !h.points || h.points.length < 2) return '';
-    const W = 500, H = 110, padL = 38, padR = 4, padT = 6, padB = 6;
+    const W = 500, H = 122, padL = 38, padR = 4, padT = 6, padB = 18;
     const doSmooth = this._config.history_smooth === true;
     const pts = doSmooth ? this._bucketPoints(h.points, h.start, h.end, 80) : h.points;
     if (pts.length < 2) return '';
@@ -641,11 +650,15 @@ class BatteryCellMonitoringCard extends HTMLElement {
       band = this._linPath(maxPts, 'M') + ' ' + this._linPath(minPts.slice().reverse(), 'L') + ' Z';
       meanPath = this._linPath(meanPts, 'M');
     }
+    const xMid = (padL + W - padR) / 2;
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
       + '<path d="' + band + '" fill="' + bandHex + '4D" stroke="none"/>'
       + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
-      + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + vMax.toFixed(3) + '</text>'
-      + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + vMin.toFixed(3) + '</text>'
+      + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + Math.round(vMax * 1000) + ' mV</text>'
+      + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + Math.round(vMin * 1000) + ' mV</text>'
+      + '<text x="' + padL + '" y="' + (H - 3) + '" class="hist-lbl">' + this._fmtTime(h.start) + '</text>'
+      + '<text x="' + xMid + '" y="' + (H - 3) + '" class="hist-lbl" text-anchor="middle">' + this._fmtTime((h.start + h.end) / 2) + '</text>'
+      + '<text x="' + (W - padR) + '" y="' + (H - 3) + '" class="hist-lbl" text-anchor="end">' + this._fmtTime(h.end) + '</text>'
       + '</svg>';
   }
 
@@ -778,7 +791,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.cell-chart{width:100%;height:64px;display:block;overflow:visible}'
       + '.cell-labels{display:flex;margin-top:3px}'
       + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
-      + '.hist-chart{width:100%;height:110px;display:block;margin-top:8px}'
+      + '.hist-chart{width:100%;height:122px;display:block;margin-top:8px}'
       + '.hist-lbl{font-size:9px;fill:var(--secondary-text-color)}'
       + '.stats-row{display:flex;gap:6px;margin-top:10px}'
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
