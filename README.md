@@ -89,3 +89,96 @@ All four are optional. The card works fully without them; they are only relevant
 | > 200 mV | Critical (possible cell defect) |
 
 LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why badge and warning hints rate the tracked peak instead of the momentary spread.
+
+## Full example
+
+Card configuration with all entities (see also [example-card.yaml](example-card.yaml)):
+
+```yaml
+type: custom:ha-battery-cell-monitoring
+title: Cell voltage analysis
+peak_helper: input_text.battery_cell_monitoring_peaks
+history_minutes: 60
+history_smooth: true
+batteries:
+  - name: B2500 (West)
+    entity_prefix: hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_
+    cell_count: 14
+    digits: 2
+    show_history: true
+    # optional template sensors (fallback: computed from the cells)
+    min: sensor.b2500_1234_cell_voltage_min
+    max: sensor.b2500_1234_cell_voltage_max
+    mean: sensor.b2500_1234_cell_voltage_mean
+    spread: sensor.b2500_1234_cell_voltage_spread
+```
+
+The cell entities resolved from `entity_prefix` / `cell_count` / `digits`:
+
+```yaml
+sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_01
+sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_02
+# ...
+sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_14
+```
+
+Template sensors for `configuration.yaml` (optional, recommended when `show_history` is on):
+
+```yaml
+template:
+  - sensor:
+      - name: "B2500 1234 cell voltage min"
+        unique_id: b2500_1234_cell_voltage_min
+        unit_of_measurement: "V"
+        state_class: measurement
+        state: >
+          {% set ns = namespace(cells=[]) %}
+          {% for i in range(1, 15) %}
+            {% set v = states('sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_' ~ '%02d' % i) | float(0) %}
+            {% if v > 0 %}{% set ns.cells = ns.cells + [v] %}{% endif %}
+          {% endfor %}
+          {{ (ns.cells | min | round(3)) if ns.cells else 'unavailable' }}
+      - name: "B2500 1234 cell voltage max"
+        unique_id: b2500_1234_cell_voltage_max
+        unit_of_measurement: "V"
+        state_class: measurement
+        state: >
+          {% set ns = namespace(cells=[]) %}
+          {% for i in range(1, 15) %}
+            {% set v = states('sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_' ~ '%02d' % i) | float(0) %}
+            {% if v > 0 %}{% set ns.cells = ns.cells + [v] %}{% endif %}
+          {% endfor %}
+          {{ (ns.cells | max | round(3)) if ns.cells else 'unavailable' }}
+      - name: "B2500 1234 cell voltage mean"
+        unique_id: b2500_1234_cell_voltage_mean
+        unit_of_measurement: "V"
+        state_class: measurement
+        state: >
+          {% set ns = namespace(cells=[]) %}
+          {% for i in range(1, 15) %}
+            {% set v = states('sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_' ~ '%02d' % i) | float(0) %}
+            {% if v > 0 %}{% set ns.cells = ns.cells + [v] %}{% endif %}
+          {% endfor %}
+          {{ (ns.cells | average | round(3)) if ns.cells else 'unavailable' }}
+      - name: "B2500 1234 cell voltage spread"
+        unique_id: b2500_1234_cell_voltage_spread
+        unit_of_measurement: "mV"
+        state_class: measurement
+        state: >
+          {% set ns = namespace(cells=[]) %}
+          {% for i in range(1, 15) %}
+            {% set v = states('sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_' ~ '%02d' % i) | float(0) %}
+            {% if v > 0 %}{% set ns.cells = ns.cells + [v] %}{% endif %}
+          {% endfor %}
+          {{ (((ns.cells | max) - (ns.cells | min)) * 1000) | round(0) if ns.cells else 'unavailable' }}
+```
+
+Peak helper (Settings → Devices & services → Helpers → Text):
+
+```yaml
+input_text:
+  battery_cell_monitoring_peaks:
+    name: Battery cell monitoring peaks
+    initial: "[]"
+    max: 255
+```
