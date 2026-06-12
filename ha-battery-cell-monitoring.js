@@ -60,7 +60,10 @@ const BCM_TRANSLATIONS = {
     label_digits:     'Digits of the number',
     display:          'Display',
     opt_status:       'Status (badge)',
-    opt_chart:        'Bar chart',
+    opt_chart:        'Cell voltages',
+    cell_normal:      'Cells',
+    cell_min:         'Lowest voltage cell',
+    cell_max:         'Highest voltage cell',
     opt_stats:        'Values (min/mean/max/spread)',
     opt_peak:         'Spread peak with reset',
     opt_history:      'History chart',
@@ -110,7 +113,10 @@ const BCM_TRANSLATIONS = {
     label_digits:     'Stellen der Nummer',
     display:          'Anzeige',
     opt_status:       'Zustand (Badge)',
-    opt_chart:        'Balkendiagramm',
+    opt_chart:        'Einzelzellspannungen',
+    cell_normal:      'Zellen',
+    cell_min:         'Zelle mit niedrigster Spannung',
+    cell_max:         'Zelle mit höchster Spannung',
     opt_stats:        'Werte (Min/Mean/Max/Spread)',
     opt_peak:         'Spread-Peak mit Reset',
     opt_history:      'Verlaufskurve',
@@ -557,13 +563,18 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const yMax = Math.max(...cells) + 0.012;
     const yRange = yMax - yMin || 0.001;
     const toY = v => H - padY - ((v - yMin) / yRange) * innerH;
+    const hex = c => /^#[0-9a-fA-F]{6}$/.test(c || '') ? c : null;
+    const baseC = hex(this._config.cell_color) || '#3b82f6';
+    const minC  = hex(this._config.cell_min_color) || '#ef4444';
+    const maxC  = hex(this._config.cell_max_color) || '#22c55e';
+    const vMin = Math.min(...cells);
+    const vMax = Math.max(...cells);
     const bars = cells.map((v, i) => {
       const x    = i * (barW + gap);
       const top  = toY(v);
       const bot  = toY(yMin);
       const h    = Math.max(bot - top, 2);
-      const diff = Math.abs(v - mean) * 1000;
-      const fill = diff > 50 ? '#ef4444' : diff > 20 ? '#eab308' : '#3b82f6';
+      const fill = (vMax > vMin && v === vMin) ? minC : (vMax > vMin && v === vMax) ? maxC : baseC;
       return '<rect x="' + x.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + barW + '" height="' + h.toFixed(1) + '" fill="' + fill + '" rx="2"/>';
     }).join('');
     const totalW = cells.length * (barW + gap) - gap;
@@ -733,7 +744,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._hass = null;
     this._editing = false;
     this._pending = false;
-    this._open = { status: false, warn: false, hist: false };
+    this._open = { status: false, warn: false, cells: false, hist: false };
   }
 
   set hass(hass) {
@@ -992,6 +1003,17 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<div class="acc-body">' + this._levelRows(this._config.warn_levels, 'warn')
       + '<button class="add-btn small" id="add-warn">' + this._t('add_entry') + '</button></div>'
       + '</details>'
+      + '<details class="acc" id="acc-cells"' + (this._open.cells ? ' open' : '') + '>'
+      + '<summary>' + this._t('opt_chart') + '</summary>'
+      + '<div class="acc-body">'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('cell_normal') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="cellbase" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.cell_color || '') ? this._config.cell_color : '#3b82f6') + '" title="' + this._t('col_color') + '"></div>'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('cell_min') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="cellmin" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.cell_min_color || '') ? this._config.cell_min_color : '#ef4444') + '" title="' + this._t('col_color') + '"></div>'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('cell_max') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="cellmax" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.cell_max_color || '') ? this._config.cell_max_color : '#22c55e') + '" title="' + this._t('col_color') + '"></div>'
+      + '</div>'
+      + '</details>'
       + '<details class="acc" id="acc-hist"' + (this._open.hist ? ' open' : '') + '>'
       + '<summary>' + this._t('opt_history') + '</summary>'
       + '<div class="acc-body">'
@@ -1110,6 +1132,21 @@ class BatteryCellMonitoringEditor extends HTMLElement {
           this._fire(false);
           return;
         }
+        if (inp.dataset.list === 'cellbase') {
+          this._config.cell_color = inp.value;
+          this._fire(false);
+          return;
+        }
+        if (inp.dataset.list === 'cellmin') {
+          this._config.cell_min_color = inp.value;
+          this._fire(false);
+          return;
+        }
+        if (inp.dataset.list === 'cellmax') {
+          this._config.cell_max_color = inp.value;
+          this._fire(false);
+          return;
+        }
         if (inp.dataset.list === 'histband') {
           this._config.history_band_color = inp.value;
           this._fire(false);
@@ -1146,6 +1183,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       d.addEventListener('toggle', () => {
         if (d.id === 'acc-status') this._open.status = d.open;
         if (d.id === 'acc-warn') this._open.warn = d.open;
+        if (d.id === 'acc-cells') this._open.cells = d.open;
         if (d.id === 'acc-hist') this._open.hist = d.open;
       });
     });
