@@ -512,12 +512,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return pts.map((p, i) => (i ? 'L' : lead) + f(p[0]) + ',' + f(p[1])).join(' ');
   }
 
-  // Monotone cubic interpolation (Fritsch-Carlson, like d3 curveMonotoneX)
-  // for points with ASCENDING x. Returns Bezier segments
-  // [x1,y1,c1x,c1y,c2x,c2y,x2,y2] so a path can be emitted in either
-  // direction - reversing the input points instead would break the
-  // monotonicity math, which assumes ascending x.
-  _monotoneSegments(pts) {
+  // Monotone tangents (Fritsch-Carlson, like d3 curveMonotoneX) for points
+  // with ascending x: no overshoot beyond the data range.
+  _monotoneTangents(pts) {
     const n = pts.length;
     const dx = [], slope = [];
     for (let i = 0; i < n - 1; i++) {
@@ -536,38 +533,26 @@ class BatteryCellMonitoringCard extends HTMLElement {
         tan[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
       }
     }
-    const segs = [];
-    for (let i = 0; i < n - 1; i++) {
-      const h = dx[i] / 3;
-      segs.push([
-        pts[i][0], pts[i][1],
-        pts[i][0] + h, pts[i][1] + tan[i] * h,
-        pts[i + 1][0] - h, pts[i + 1][1] - tan[i + 1] * h,
-        pts[i + 1][0], pts[i + 1][1],
-      ]);
-    }
-    return segs;
+    return tan;
   }
 
-  _segPath(segs, first) {
-    const f = n => n.toFixed(1);
-    let d = 'M' + f(first[0]) + ',' + f(first[1]);
-    for (const s of segs) {
-      d += ' C' + f(s[2]) + ',' + f(s[3]) + ' ' + f(s[4]) + ',' + f(s[5]) + ' ' + f(s[6]) + ',' + f(s[7]);
+  // Samples the monotone curve at the given x positions (cubic Hermite).
+  _sampleCurve(pts, xs) {
+    const n = pts.length;
+    const tan = this._monotoneTangents(pts);
+    const ys = [];
+    let seg = 0;
+    for (const X of xs) {
+      while (seg < n - 2 && X > pts[seg + 1][0]) seg++;
+      const x1 = pts[seg][0], y1 = pts[seg][1];
+      const x2 = pts[seg + 1][0], y2 = pts[seg + 1][1];
+      const h = x2 - x1 || 1;
+      const t = Math.min(1, Math.max(0, (X - x1) / h));
+      const t2 = t * t, t3 = t2 * t;
+      ys.push((2 * t3 - 3 * t2 + 1) * y1 + (t3 - 2 * t2 + t) * h * tan[seg]
+            + (-2 * t3 + 3 * t2) * y2 + (t3 - t2) * h * tan[seg + 1]);
     }
-    return d;
-  }
-
-  // Emits the segments backwards (end -> start); a cubic Bezier reversed
-  // is the same curve with swapped control points.
-  _segPathRev(segs) {
-    const f = n => n.toFixed(1);
-    let d = '';
-    for (let i = segs.length - 1; i >= 0; i--) {
-      const s = segs[i];
-      d += ' C' + f(s[4]) + ',' + f(s[5]) + ' ' + f(s[2]) + ',' + f(s[3]) + ' ' + f(s[0]) + ',' + f(s[1]);
-    }
-    return d;
+    return ys;
   }
 
   // Aggregates raw history points into n time buckets. Smoothing the data
@@ -616,13 +601,21 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const meanPts = pts.map(p => [x(p.t), y(p.mean)]);
     let band, meanPath;
     if (smooth && pts.length > 2) {
-      const f = n => n.toFixed(1);
-      const lastMin = minPts[minPts.length - 1];
-      band = this._segPath(this._monotoneSegments(maxPts), maxPts[0])
-        + ' L' + f(lastMin[0]) + ',' + f(lastMin[1])
-        + this._segPathRev(this._monotoneSegments(minPts))
-        + ' Z';
-      meanPath = this._segPath(this._monotoneSegments(meanPts), meanPts[0]);
+      // Sample both smoothed edges on a fine common x grid and clamp them
+      // per sample - independently smoothed edges can cross within a
+      // segment, which creates self-intersections that punch holes into
+      // the fill. Screen y is inverted: smaller y = higher voltage.
+      const xStart = maxPts[0][0], xEnd = maxPts[maxPts.length - 1][0];
+      const steps = Math.max(50, Math.floor((xEnd - xStart) / 2));
+      const xs = Array.from({ length: steps + 1 }, (_, j) => xStart + (xEnd - xStart) * j / steps);
+      const yMaxS = this._sampleCurve(maxPts, xs);
+      const yMinS = this._sampleCurve(minPts, xs);
+      const yMeanS = this._sampleCurve(meanPts, xs);
+      const top = xs.map((X, j) => [X, Math.min(yMaxS[j], yMinS[j])]);
+      const bot = xs.map((X, j) => [X, Math.max(yMaxS[j], yMinS[j])]);
+      const mid = xs.map((X, j) => [X, Math.min(Math.max(yMeanS[j], top[j][1]), bot[j][1])]);
+      band = this._linPath(top, 'M') + ' ' + this._linPath(bot.slice().reverse(), 'L') + ' Z';
+      meanPath = this._linPath(mid, 'M');
     } else {
       band = this._linPath(maxPts, 'M') + ' ' + this._linPath(minPts.slice().reverse(), 'L') + ' Z';
       meanPath = this._linPath(meanPts, 'M');
