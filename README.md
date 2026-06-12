@@ -61,9 +61,23 @@ batteries:
 | `digits` | number | 2 | Digits of the appended number |
 | `first_cell` | number | 1 | First cell number |
 | `cells` | list | – | Alternative: explicit entity list (takes precedence) |
-| `spread` / `min` / `max` / `mean` | entity | computed | Optional template sensors (also used for the history chart) |
 | `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Display options |
 | `show_history` | bool | false | History chart (min/max band + mean line) |
+
+#### Optional template sensors
+
+Configurable in the UI editor under **History chart → Template sensors (optional)**:
+
+| Option | Description |
+|--------|-------------|
+| `min` | Template sensor for the minimum cell voltage |
+| `max` | Template sensor for the maximum cell voltage |
+| `mean` | Template sensor for the mean cell voltage |
+| `spread` | Template sensor for the cell voltage spread |
+
+When `min` / `max` / `mean` are set, the history chart fetches only these 3 entity histories instead of all individual cell entities — functionally identical, fewer network requests. The `spread` sensor improves the momentary spread value in the stats row (falls back to `max − min` computed from cells).
+
+All four are optional. The card works fully without them; they are only relevant when `show_history: true` is used.
 
 ## Spread assessment (LFP)
 

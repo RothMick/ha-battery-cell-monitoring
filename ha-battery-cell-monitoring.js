@@ -71,6 +71,11 @@ const BCM_TRANSLATIONS = {
     hist_band:        'Band (min-max)',
     hist_line:        'Mean line',
     hist_smooth:      'Smoothed curve',
+    hist_sensors:     'Template sensors (optional)',
+    sensor_min:       'Min sensor',
+    sensor_max:       'Max sensor',
+    sensor_mean:      'Mean sensor',
+    sensor_spread:    'Spread sensor',
     add_battery:      '+ Add battery',
     move_up:          'Move up',
     move_down:        'Move down',
@@ -124,6 +129,11 @@ const BCM_TRANSLATIONS = {
     hist_band:        'Fläche (Min-Max)',
     hist_line:        'Mittelwert-Linie',
     hist_smooth:      'Geglättete Kurve',
+    hist_sensors:     'Template-Sensoren (optional)',
+    sensor_min:       'Min-Sensor',
+    sensor_max:       'Max-Sensor',
+    sensor_mean:      'Mean-Sensor',
+    sensor_spread:    'Spread-Sensor',
     add_battery:      '+ Batterie hinzufügen',
     move_up:          'Nach oben',
     move_down:        'Nach unten',
@@ -1074,6 +1084,8 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '.lvl-row ha-form{flex:1}'
       + '.base-label{flex:1;font-size:14px;font-weight:500;color:var(--primary-text-color)}'
       + '.lvl-color{width:34px;height:34px;flex-shrink:0;border:1px solid var(--divider-color);border-radius:8px;padding:2px;background:none;cursor:pointer}'
+      + '.hist-sensors-hdr{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding-top:12px;border-top:1px solid var(--divider-color)}'
+      + '.hist-sensors-name{font-size:13px;font-weight:500;color:var(--primary-text-color);margin-top:6px;margin-bottom:2px}'
       + '</style>'
       + '<div class="editor">'
       + '<ha-form id="title-form"></ha-form>'
@@ -1115,6 +1127,12 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<input type="color" class="lvl-color" data-list="histline" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : '#ffffff') + '" title="' + this._t('col_color') + '"></div>'
       + '<div class="opt-row"><ha-switch id="hist-smooth"' + (this._config.history_smooth === true ? ' checked' : '') + '></ha-switch>'
       + '<span class="opt-label">' + this._t('hist_smooth') + '</span></div>'
+      + (batteries.length ? '<div class="hist-sensors-hdr">' + this._t('hist_sensors') + '</div>'
+        + batteries.map((b, i) =>
+          '<div class="hist-sensors-name">' + (b.name || (this._t('battery') + ' ' + (i + 1))) + '</div>'
+          + '<ha-form id="hist-sensors-' + i + '"></ha-form>'
+        ).join('')
+        : '')
       + '</div>'
       + '</details>'
       + '</div>';
@@ -1212,6 +1230,27 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       });
       this._wireBuffered(histForm);
     }
+    batteries.forEach((b, i) => {
+      const sForm = this.shadowRoot.getElementById('hist-sensors-' + i);
+      if (!sForm) return;
+      sForm.hass = this._hass;
+      sForm.schema = [
+        { name: 'min',    label: this._t('sensor_min'),    selector: { entity: { domain: 'sensor' } } },
+        { name: 'max',    label: this._t('sensor_max'),    selector: { entity: { domain: 'sensor' } } },
+        { name: 'mean',   label: this._t('sensor_mean'),   selector: { entity: { domain: 'sensor' } } },
+        { name: 'spread', label: this._t('sensor_spread'), selector: { entity: { domain: 'sensor' } } },
+      ];
+      sForm.data = { min: b.min ?? null, max: b.max ?? null, mean: b.mean ?? null, spread: b.spread ?? null };
+      sForm.computeLabel = s => s.label ?? s.name;
+      sForm.addEventListener('value-changed', ev => {
+        const v = ev.detail.value || {};
+        ['min', 'max', 'mean', 'spread'].forEach(k => {
+          if (v[k]) b[k] = v[k]; else delete b[k];
+        });
+        this._queue();
+      });
+      this._wireBuffered(sForm);
+    });
     this.shadowRoot.getElementById('hist-smooth')?.addEventListener('change', ev => {
       this._config.history_smooth = ev.target.checked;
       this._fire(false);
