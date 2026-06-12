@@ -1,28 +1,28 @@
 type: custom:ha-battery-cell-monitoring
-title: Zellspannungsanalyse
+title: Cell voltage analysis
 warn_thresholds:
-  watch: 20      # mV — gelb
-  balance: 50    # mV — orange
-  critical: 200  # mV — rot
+  watch: 20      # mV - yellow
+  balance: 50    # mV - orange
+  critical: 200  # mV - red
 batteries:
   - id: 1234
     name: B2500 1234 (West)
-    entity_prefix: sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_
+    entity_prefix: hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_  # "sensor." is added automatically
     cell_count: 14
     digits: 2
-    # optional: Template-Sensoren (sonst werden Werte aus den Zellen berechnet)
+    # optional template sensors (computed from cells when omitted)
     spread: sensor.b2500_1234_cell_voltage_spread
     min: sensor.b2500_1234_cell_voltage_min
     max: sensor.b2500_1234_cell_voltage_max
     mean: sensor.b2500_1234_cell_voltage_mean
-    # Anzeige-Optionen (alle default true)
-    show_status: true   # farbiges Zustand-Badge oben rechts
-    show_chart: true    # Zellen-Balkendiagramm
-    show_stats: true    # Min/Mean/Max/Spread-Zeile
-    show_peak: true     # Peak-Spread mit Timestamp + Reset
+    # display options (all default true)
+    show_status: true
+    show_chart: true
+    show_stats: true
+    show_peak: true
   - id: 4321
     name: B2500 4321 (Ost)
-    entity_prefix: sensor.hame_energy_hmj_2_hgfedcba4321_cell_voltage_host_
+    entity_prefix: hame_energy_hmj_2_hgfedcba4321_cell_voltage_host_
     cell_count: 14
     digits: 2
     spread: sensor.b2500_4321_cell_voltage_spread

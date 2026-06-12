@@ -1,72 +1,73 @@
 # ha-battery-cell-monitoring
 
-Home Assistant Lovelace Custom Card zur Überwachung von Einzelzellspannungen in Batteriespeichern (z. B. Marstek B2500).
+Home Assistant Lovelace custom card for monitoring per-cell voltages of home battery storage systems (e.g. Marstek B2500).
 
 ## Features
 
-- **Zellen-Balkendiagramm** — alle Zellen auf gezoomter Y-Achse, Ausreißer farblich markiert (gelb >20 mV, rot >50 mV Abweichung vom Mittelwert)
-- **Zustand-Badge** — farbkodierter Spread-Status: grün (<20 mV) / gelb (Beobachten) / orange (Balancing nötig) / rot (Kritisch)
-- **Warn-Banner** — erscheint bei erhöhtem Spread, dismissbar (localStorage)
-- **Werte-Zeile** — Min / Mean / Max / Spread
-- **Peak-Spread-Tracking** — höchster gesehener Spread bleibt mit Timestamp stehen, Reset-Button (localStorage, pro Browser)
-- **UI-Editor** — Titel, Batterien (hinzufügen/entfernen/umsortieren), Entity-Stamm mit Zellanzahl/Stellen, Anzeige-Optionen per Switch
-- **Mehrere Batterien** in einer Kachel
-- Funktioniert ohne Template-Sensoren — Min/Max/Mean/Spread werden bei Bedarf aus den Zellwerten berechnet
+- **Cell bar chart** — all cells on a zoomed Y axis, outliers highlighted (yellow >20 mV, red >50 mV deviation from mean)
+- **Status badge** — color-coded spread status: green (<20 mV) / yellow (watch) / orange (balancing needed) / red (critical)
+- **Warning banner** — appears on elevated spread, dismissible (localStorage)
+- **Stats row** — min / mean / max / spread
+- **Peak spread tracking** — highest observed spread is kept with a timestamp, reset button (localStorage, per browser)
+- **UI editor** — card title, batteries (add / remove / reorder), entity stem with cell count and digits, display options via switches
+- **Multiple batteries** in one card
+- **Localized** — English and German, follows the Home Assistant UI language
+- Works without template sensors — min/max/mean/spread are computed from the cell values when needed
 
 ## Installation
 
-1. `ha-battery-cell-monitoring.js` nach `config/www/` kopieren (oder via HACS als Custom Repository)
-2. Ressource registrieren: Einstellungen → Dashboards → Ressourcen →
-   `/local/ha-battery-cell-monitoring.js`, Typ **JavaScript-Modul**
-3. Karte hinzufügen: „Battery Cell Monitoring" im Karten-Picker wählen — Konfiguration komplett per UI möglich
+1. Copy `ha-battery-cell-monitoring.js` to `config/www/` (or add this repo as a HACS custom repository)
+2. Register the resource: Settings → Dashboards → Resources →
+   `/local/ha-battery-cell-monitoring.js`, type **JavaScript module**
+3. Add the card: pick "Battery Cell Monitoring" from the card picker — configuration is fully available in the UI
 
-## Konfiguration
+## Configuration
 
-Vollständig über den UI-Editor oder per YAML, siehe [example-card.yaml](example-card.yaml):
+Fully configurable via the UI editor, or via YAML (see [example-card.yaml](example-card.yaml)):
 
 ```yaml
 type: custom:ha-battery-cell-monitoring
-title: Zellspannungsanalyse
+title: Cell voltage analysis
 batteries:
   - name: B2500 (West)
-    entity_prefix: sensor.hame_energy_hmj_2_xxxx_cell_voltage_host_
+    entity_prefix: hame_energy_hmj_2_xxxx_cell_voltage_host_  # "sensor." is added automatically
     cell_count: 14
     digits: 2          # _01, _02, ... _14
-    show_status: true  # Zustand-Badge
-    show_chart: true   # Balkendiagramm
-    show_stats: true   # Min/Mean/Max/Spread
-    show_peak: true    # Peak-Spread mit Reset
+    show_status: true  # status badge
+    show_chart: true   # bar chart
+    show_stats: true   # min/mean/max/spread
+    show_peak: true    # peak spread with reset
 ```
 
-### Optionen
+### Options
 
-| Option | Typ | Default | Beschreibung |
-|--------|-----|---------|--------------|
-| `title` | string | – | Überschrift der Kachel |
-| `warn_thresholds.watch` | number | 20 | mV-Schwelle gelb |
-| `warn_thresholds.balance` | number | 50 | mV-Schwelle orange |
-| `warn_thresholds.critical` | number | 200 | mV-Schwelle rot |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `title` | string | – | Card heading |
+| `warn_thresholds.watch` | number | 20 | mV threshold yellow |
+| `warn_thresholds.balance` | number | 50 | mV threshold orange |
+| `warn_thresholds.critical` | number | 200 | mV threshold red |
 
-### Pro Batterie
+### Per battery
 
-| Option | Typ | Default | Beschreibung |
-|--------|-----|---------|--------------|
-| `name` | string | – | Anzeigename |
-| `entity_prefix` | string | – | Entity-ID-Stamm der Zellsensoren |
-| `cell_count` | number | – | Anzahl Zellen (1–32) |
-| `digits` | number | 2 | Stellen der angehängten Nummer |
-| `first_cell` | number | 1 | Erste Zellnummer |
-| `cells` | list | – | Alternativ: explizite Entity-Liste (hat Vorrang) |
-| `spread` / `min` / `max` / `mean` | entity | berechnet | Optionale Template-Sensoren |
-| `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Anzeige-Optionen |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | string | – | Display name |
+| `entity_prefix` | string | – | Entity ID stem of the cell sensors (`sensor.` is prepended automatically when no domain is given) |
+| `cell_count` | number | – | Number of cells (1–32) |
+| `digits` | number | 2 | Digits of the appended number |
+| `first_cell` | number | 1 | First cell number |
+| `cells` | list | – | Alternative: explicit entity list (takes precedence) |
+| `spread` / `min` / `max` / `mean` | entity | computed | Optional template sensors |
+| `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Display options |
 
-## Spread-Bewertung (LFP)
+## Spread assessment (LFP)
 
-| Spread | Bewertung |
-|--------|-----------|
-| < 20 mV | Gut |
-| 20–50 mV | Beobachten |
-| 50–200 mV | Balancing nötig |
-| > 200 mV | Kritisch (Zelldefekt möglich) |
+| Spread | Assessment |
+|--------|------------|
+| < 20 mV | Good |
+| 20–50 mV | Watch |
+| 50–200 mV | Balancing needed |
+| > 200 mV | Critical (possible cell defect) |
 
-Hinweis: LFP-Zellen zeigen Probleme fast nur an den SOC-Extremen (>90 % / <10 %). Deshalb hält das Peak-Tracking den höchsten gemessenen Wert fest.
+Note: LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why the peak tracking keeps the highest measured value.
