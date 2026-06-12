@@ -332,6 +332,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _resetPeak(key) {
+    // Resetting the peak also clears a dismissed hint, so a newly
+    // reached threshold shows the warning banner again.
+    localStorage.removeItem(this._dismissKey(key));
     const peaks = this._readPeaks();
     if (peaks === null) {
       localStorage.removeItem(this._peakKey(key));
