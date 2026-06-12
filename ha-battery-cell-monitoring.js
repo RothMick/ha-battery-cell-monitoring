@@ -63,6 +63,8 @@ const BCM_TRANSLATIONS = {
     opt_chart:        'Bar chart',
     opt_stats:        'Values (min/mean/max/spread)',
     opt_peak:         'Spread peak with reset',
+    opt_history:      'History chart',
+    history_hours:    'History window (hours)',
     add_battery:      '+ Add battery',
     move_up:          'Move up',
     move_down:        'Move down',
@@ -108,6 +110,8 @@ const BCM_TRANSLATIONS = {
     opt_chart:        'Balkendiagramm',
     opt_stats:        'Werte (Min/Mean/Max/Spread)',
     opt_peak:         'Spread-Peak mit Reset',
+    opt_history:      'Verlaufskurve',
+    history_hours:    'Zeitfenster Verlauf (Stunden)',
     add_battery:      '+ Batterie hinzufügen',
     move_up:          'Nach oben',
     move_down:        'Nach unten',
@@ -147,6 +151,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       balance:  config.warn_thresholds?.balance  ?? 50,
       critical: config.warn_thresholds?.critical ?? 200,
     };
+    setTimeout(() => this._refreshHistories(), 0);
 
   }
 
@@ -154,6 +159,16 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const old = this._hass;
     this._hass = hass;
     if (!old || this._entitiesChanged(old, hass)) this._render();
+    if (!old) this._refreshHistories();
+  }
+
+  connectedCallback() {
+    this._histTimer = setInterval(() => this._refreshHistories(), 60000);
+    this._refreshHistories();
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._histTimer);
   }
 
   _t(key) { return bcmT(this._hass, key); }
@@ -410,6 +425,98 @@ class BatteryCellMonitoringCard extends HTMLElement {
     };
   }
 
+  // --- history (min/max band + mean line) ---
+
+  async _refreshHistories() {
+    if (!this._hass || !this._config || this._histPending) return;
+    const wanted = this._config.batteries.filter(b => b.show_history === true);
+    if (!wanted.length) return;
+    this._histPending = true;
+    const hours = parseFloat(this._config.history_hours) || 1;
+    try {
+      for (const b of wanted) {
+        try {
+          this._histories = this._histories || {};
+          this._histories[this._batteryKey(b)] = await this._fetchHistory(b, hours);
+        } catch (e) { /* keep previous data on fetch errors */ }
+      }
+    } finally {
+      this._histPending = false;
+    }
+    this._render();
+  }
+
+  // Uses the min/max/mean template sensors when configured; otherwise the
+  // cell entities are merged into one timeline and aggregated client-side.
+  async _fetchHistory(battery, hours) {
+    const useSensors = !!(battery.min && battery.max && battery.mean);
+    const ids = useSensors ? [battery.min, battery.max, battery.mean] : this._cellIds(battery);
+    if (!ids.length) return null;
+    const start = new Date(Date.now() - hours * 3600 * 1000);
+    const resp = await this._hass.callWS({
+      type: 'history/history_during_period',
+      start_time: start.toISOString(),
+      entity_ids: ids,
+      minimal_response: true,
+      no_attributes: true,
+    });
+    const series = ids.map(id => (resp[id] || [])
+      .map(p => ({
+        t: typeof p.lu === 'number' ? p.lu * 1000 : Date.parse(p.lu || p.last_updated || p.last_changed),
+        v: parseFloat(p.s ?? p.state),
+      }))
+      .filter(p => !isNaN(p.t) && !isNaN(p.v)));
+    const events = [];
+    series.forEach((arr, idx) => arr.forEach(p => events.push({ t: p.t, idx, v: p.v })));
+    events.sort((a, b) => a.t - b.t);
+    const last = new Array(ids.length).fill(null);
+    let ready = 0;
+    const points = [];
+    for (const e of events) {
+      if (last[e.idx] === null) ready++;
+      last[e.idx] = e.v;
+      if (ready < ids.length) continue;
+      let mn, mx, mean;
+      if (useSensors) {
+        mn = last[0]; mx = last[1]; mean = last[2];
+      } else {
+        mn = Math.min(...last);
+        mx = Math.max(...last);
+        mean = last.reduce((a, b) => a + b, 0) / last.length;
+      }
+      points.push({ t: e.t, mn, mx, mean });
+    }
+    if (points.length) {
+      const lastPt = points[points.length - 1];
+      points.push({ t: Date.now(), mn: lastPt.mn, mx: lastPt.mx, mean: lastPt.mean });
+    }
+    return { points, start: start.getTime(), end: Date.now() };
+  }
+
+  // One closed SVG path: forward along the max curve, backward along the
+  // min curve - the fill covers exactly the band between both curves.
+  _renderHistory(battery) {
+    const h = this._histories?.[this._batteryKey(battery)];
+    if (!h || !h.points || h.points.length < 2) return '';
+    const W = 500, H = 110, padL = 38, padR = 4, padT = 6, padB = 6;
+    const pts = h.points;
+    let vMin = Infinity, vMax = -Infinity;
+    pts.forEach(p => { if (p.mn < vMin) vMin = p.mn; if (p.mx > vMax) vMax = p.mx; });
+    const vPad = Math.max((vMax - vMin) * 0.1, 0.002);
+    vMin -= vPad; vMax += vPad;
+    const x = t => padL + (t - h.start) / (h.end - h.start || 1) * (W - padL - padR);
+    const y = v => H - padB - (v - vMin) / (vMax - vMin || 0.001) * (H - padT - padB);
+    const fwd = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.mx).toFixed(1)).join(' ');
+    const back = pts.slice().reverse().map(p => 'L' + x(p.t).toFixed(1) + ',' + y(p.mn).toFixed(1)).join(' ');
+    const meanPath = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ',' + y(p.mean).toFixed(1)).join(' ');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
+      + '<path d="' + fwd + ' ' + back + ' Z" fill="rgba(59,130,246,0.30)" stroke="none"/>'
+      + '<path d="' + meanPath + '" fill="none" stroke="var(--primary-text-color)" stroke-width="1.5"/>'
+      + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + vMax.toFixed(3) + '</text>'
+      + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + vMin.toFixed(3) + '</text>'
+      + '</svg>';
+  }
+
   // --- render ---
 
   _renderChart(cells, mean) {
@@ -446,6 +553,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     const showStatus = battery.show_status !== false;
     const showChart  = battery.show_chart  !== false;
+    const showHistory = battery.show_history === true;
     const showStats  = battery.show_stats  !== false;
     const showPeak   = battery.show_peak   !== false;
 
@@ -481,6 +589,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       const cellLabels = cells.map((_, i) => '<span>' + (i + 1) + '</span>').join('');
       chartHtml = this._renderChart(cells, mean) + '<div class="cell-labels">' + cellLabels + '</div>';
     }
+    const histHtml = showHistory ? this._renderHistory(battery) : '';
 
     const statsHtml = showStats
       ? '<div class="stats-row">'
@@ -506,7 +615,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     return '<div class="battery-section">'
       + '<div class="battery-header"><span class="battery-name">' + name + '</span>' + badge + '</div>'
-      + warnHtml + chartHtml + statsHtml + peakHtml
+      + warnHtml + chartHtml + histHtml + statsHtml + peakHtml
       + '</div>';
   }
 
@@ -526,6 +635,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.cell-chart{width:100%;height:64px;display:block;overflow:visible}'
       + '.cell-labels{display:flex;margin-top:3px}'
       + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
+      + '.hist-chart{width:100%;height:110px;display:block;margin-top:8px}'
+      + '.hist-lbl{font-size:9px;fill:var(--secondary-text-color)}'
       + '.stats-row{display:flex;gap:6px;margin-top:10px}'
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
       + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
@@ -718,6 +829,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       digits: 2,
       show_status: true,
       show_chart: true,
+      show_history: false,
       show_stats: true,
       show_peak: true,
     });
@@ -765,16 +877,17 @@ class BatteryCellMonitoringEditor extends HTMLElement {
 
   _optionRows(i, b) {
     const opts = [
-      ['show_status', this._t('opt_status')],
-      ['show_chart',  this._t('opt_chart')],
-      ['show_stats',  this._t('opt_stats')],
-      ['show_peak',   this._t('opt_peak')],
+      ['show_status', this._t('opt_status'), true],
+      ['show_chart',  this._t('opt_chart'), true],
+      ['show_history', this._t('opt_history'), false],
+      ['show_stats',  this._t('opt_stats'), true],
+      ['show_peak',   this._t('opt_peak'), true],
     ];
     return '<div class="options">'
       + '<div class="options-title">' + this._t('display') + '</div>'
-      + opts.map(([key, label]) =>
+      + opts.map(([key, label, defOn]) =>
         '<div class="opt-row">'
-        + '<ha-switch id="opt-' + i + '-' + key + '" data-idx="' + i + '" data-option="' + key + '"' + (b[key] !== false ? ' checked' : '') + '></ha-switch>'
+        + '<ha-switch id="opt-' + i + '-' + key + '" data-idx="' + i + '" data-option="' + key + '"' + ((defOn ? b[key] !== false : b[key] === true) ? ' checked' : '') + '></ha-switch>'
         + '<span class="opt-label">' + label + '</span>'
         + '</div>'
       ).join('')
@@ -856,10 +969,12 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     titleForm.schema = [
       { name: 'title', label: this._t('card_title'), selector: { text: {} } },
       { name: 'peak_helper', label: this._t('peak_helper'), selector: { entity: { domain: 'input_text' } } },
+      { name: 'history_hours', label: this._t('history_hours'), selector: { number: { min: 0.5, max: 48, step: 0.5, mode: 'box' } } },
     ];
     titleForm.data = {
       title: this._config.title || '',
       peak_helper: this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks',
+      history_hours: this._config.history_hours ?? 1,
     };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
@@ -870,6 +985,9 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       } else {
         delete this._config.peak_helper;
       }
+      const hh = parseFloat(v.history_hours);
+      if (hh > 0 && hh !== 1) this._config.history_hours = hh;
+      else delete this._config.history_hours;
       this._queue();
     });
     this._wireBuffered(titleForm);
