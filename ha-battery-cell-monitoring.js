@@ -629,7 +629,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
     }
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
       + '<path d="' + band + '" fill="' + bandHex + '4D" stroke="none"/>'
-      + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5"/>'
+      + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + vMax.toFixed(3) + '</text>'
       + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + vMin.toFixed(3) + '</text>'
       + '</svg>';
@@ -666,7 +666,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
     }).join('');
     const totalW = cells.length * (barW + gap) - gap;
     const my = toY(mean).toFixed(1);
-    const meanLine = '<line x1="0" y1="' + my + '" x2="' + totalW + '" y2="' + my + '" stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="4,3"/>';
+    const meanLine = '<line x1="0" y1="' + my + '" x2="' + totalW + '" y2="' + my + '" stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/>';
     return '<svg viewBox="0 0 ' + totalW + ' ' + H + '" class="cell-chart" preserveAspectRatio="none">' + bars + meanLine + '</svg>';
   }
 
