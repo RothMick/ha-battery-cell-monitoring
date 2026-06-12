@@ -55,7 +55,7 @@ const BCM_TRANSLATIONS = {
   de: {
     status_good:      'Gut',
     status_watch:     'Beobachten',
-    status_balance:   'Balancing n&ouml;tig',
+    status_balance:   'Balancing nötig',
     status_critical:  'Kritisch',
     no_data:          'Keine Daten',
     spread:           'Spread',
@@ -63,8 +63,8 @@ const BCM_TRANSLATIONS = {
     mean:             'Mean',
     max:              'Max',
     peak_label:       'Peak-Spread:',
-    dismiss:          'Schlie&szlig;en',
-    reset_peak:       'Peak zur&uuml;cksetzen',
+    dismiss:          'Schließen',
+    reset_peak:       'Peak zurücksetzen',
     battery:          'Batterie',
     card_title:       'Titel der Kachel',
     label_name:       'Bezeichnung',
@@ -76,7 +76,7 @@ const BCM_TRANSLATIONS = {
     opt_chart:        'Balkendiagramm',
     opt_stats:        'Werte (Min/Mean/Max/Spread)',
     opt_peak:         'Spread-Peak mit Reset',
-    add_battery:      '+ Batterie hinzuf&uuml;gen',
+    add_battery:      '+ Batterie hinzufügen',
     move_up:          'Nach oben',
     move_down:        'Nach unten',
     remove:           'Entfernen',
@@ -283,11 +283,11 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const showWarn = showStatus && spreadMv > this._thresholds.watch && !this._isDismissed(key, spreadMv);
 
     const badge = showStatus
-      ? '<span class="spread-badge" style="color:' + color + ';border-color:' + color + ';">' + Math.round(spreadMv) + ' mV &ndash; ' + label + '</span>'
+      ? '<span class="spread-badge" style="color:' + color + ';border-color:' + color + ';">' + Math.round(spreadMv) + ' mV – ' + label + '</span>'
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">&#9888;</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV &mdash; ' + label + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">&#x2715;</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV — ' + label + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -312,7 +312,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       const peakColor = peak ? this._spreadColor(peak.spread) : '#22c55e';
       const peakVal   = peak ? peak.spread + ' mV' : '-';
       const peakTs    = peak ? '<span class="peak-ts">' + peak.ts + '</span>' : '';
-      const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">&#x21BA;</button>' : '';
+      const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
       peakHtml = '<div class="peak-row">'
         + '<span class="peak-label">' + this._t('peak_label') + '</span>'
         + '<span class="peak-val" style="color:' + peakColor + ';">' + peakVal + '</span>'
@@ -531,11 +531,11 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     const batteryBlocks = batteries.map((b, i) => {
       return '<div class="battery-box">'
         + '<div class="battery-box-header">'
-        + '<span class="battery-box-title">' + this._t('battery') + ' ' + (i + 1) + (b.name ? ' &ndash; ' + b.name : '') + '</span>'
+        + '<span class="battery-box-title">' + this._t('battery') + ' ' + (i + 1) + (b.name ? ' – ' + b.name : '') + '</span>'
         + '<span class="battery-box-actions">'
-        + '<button class="icon-btn" data-action="up" data-idx="' + i + '" title="' + this._t('move_up') + '"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
-        + '<button class="icon-btn" data-action="down" data-idx="' + i + '" title="' + this._t('move_down') + '"' + (i === batteries.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
-        + '<button class="icon-btn danger" data-action="remove" data-idx="' + i + '" title="' + this._t('remove') + '">&#x2715;</button>'
+        + '<button class="icon-btn" data-action="up" data-idx="' + i + '" title="' + this._t('move_up') + '"' + (i === 0 ? ' disabled' : '') + '>▲</button>'
+        + '<button class="icon-btn" data-action="down" data-idx="' + i + '" title="' + this._t('move_down') + '"' + (i === batteries.length - 1 ? ' disabled' : '') + '>▼</button>'
+        + '<button class="icon-btn danger" data-action="remove" data-idx="' + i + '" title="' + this._t('remove') + '">✕</button>'
         + '</span>'
         + '</div>'
         + '<div class="battery-box-body">'
