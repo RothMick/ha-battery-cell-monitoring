@@ -1,25 +1,105 @@
 /**
  * ha-battery-cell-monitoring
- * Lovelace card: Zellspannungen, Spread-Analyse, Peak-Tracking fuer Batteriespeicher.
+ * Lovelace card: per-cell voltages, spread analysis and peak tracking
+ * for home battery storage systems (e.g. Marstek B2500).
  *
- * Config (neu, prefix-basiert):
+ * Config (prefix based):
  *   type: custom:ha-battery-cell-monitoring
- *   title: Zellspannungsanalyse
+ *   title: Cell voltage analysis
  *   batteries:
- *     - name: B2500 1234 (West)
- *       entity_prefix: sensor.hame_energy_hmj_2_abcdefgh1234_cell_voltage_host_
+ *     - name: B2500 (West)
+ *       entity_prefix: hame_energy_hmj_2_xxxx_cell_voltage_host_   # "sensor." is added automatically
  *       cell_count: 14
  *       digits: 2
- *       show_status: true   # farbiges Badge oben rechts
- *       show_chart: true    # Zellen-Balkendiagramm
- *       show_stats: true    # Min/Mean/Max/Spread-Zeile
- *       show_peak: true     # Peak-Spread mit Timestamp + Reset
+ *       show_status: true   # colored badge top right
+ *       show_chart: true    # cell bar chart
+ *       show_stats: true    # min/mean/max/spread row
+ *       show_peak: true     # peak spread with timestamp + reset
  *
- * Alte Configs mit cells:[...] und spread/min/max/mean-Entities werden
- * weiterhin unterstuetzt (cells-Array hat Vorrang vor entity_prefix).
+ * Legacy configs with cells:[...] and spread/min/max/mean entities
+ * keep working (an explicit cells array takes precedence).
  */
 
-// --- card -------------------------------------------------------------------
+// --- i18n ---------------------------------------------------------------
+
+const BCM_TRANSLATIONS = {
+  en: {
+    status_good:      'Good',
+    status_watch:     'Watch',
+    status_balance:   'Balancing needed',
+    status_critical:  'Critical',
+    no_data:          'No data',
+    spread:           'Spread',
+    min:              'Min',
+    mean:             'Mean',
+    max:              'Max',
+    peak_label:       'Peak spread:',
+    dismiss:          'Dismiss',
+    reset_peak:       'Reset peak',
+    battery:          'Battery',
+    card_title:       'Card title',
+    label_name:       'Name',
+    label_prefix:     'Entity stem of the cells',
+    label_cell_count: 'Number of cells',
+    label_digits:     'Digits of the number',
+    display:          'Display',
+    opt_status:       'Status (badge)',
+    opt_chart:        'Bar chart',
+    opt_stats:        'Values (min/mean/max/spread)',
+    opt_peak:         'Spread peak with reset',
+    add_battery:      '+ Add battery',
+    move_up:          'Move up',
+    move_down:        'Move down',
+    remove:           'Remove',
+  },
+  de: {
+    status_good:      'Gut',
+    status_watch:     'Beobachten',
+    status_balance:   'Balancing n&ouml;tig',
+    status_critical:  'Kritisch',
+    no_data:          'Keine Daten',
+    spread:           'Spread',
+    min:              'Min',
+    mean:             'Mean',
+    max:              'Max',
+    peak_label:       'Peak-Spread:',
+    dismiss:          'Schlie&szlig;en',
+    reset_peak:       'Peak zur&uuml;cksetzen',
+    battery:          'Batterie',
+    card_title:       'Titel der Kachel',
+    label_name:       'Bezeichnung',
+    label_prefix:     'Entity-Stamm der Zellen',
+    label_cell_count: 'Anzahl Zellen',
+    label_digits:     'Stellen der Nummer',
+    display:          'Anzeige',
+    opt_status:       'Zustand (Badge)',
+    opt_chart:        'Balkendiagramm',
+    opt_stats:        'Werte (Min/Mean/Max/Spread)',
+    opt_peak:         'Spread-Peak mit Reset',
+    add_battery:      '+ Batterie hinzuf&uuml;gen',
+    move_up:          'Nach oben',
+    move_down:        'Nach unten',
+    remove:           'Entfernen',
+  },
+};
+
+function bcmLang(hass) {
+  const lang = (hass?.locale?.language || hass?.language || 'en').substring(0, 2);
+  return BCM_TRANSLATIONS[lang] ? lang : 'en';
+}
+
+function bcmT(hass, key) {
+  return BCM_TRANSLATIONS[bcmLang(hass)][key] ?? BCM_TRANSLATIONS.en[key] ?? key;
+}
+
+// Prepend "sensor." when the stem has no domain part.
+function bcmNormalizePrefix(prefix) {
+  const p = (prefix || '').trim();
+  if (!p) return '';
+  return p.includes('.') ? p : 'sensor.' + p;
+}
+
+// --- card ---------------------------------------------------------------
 
 class BatteryCellMonitoringCard extends HTMLElement {
   constructor() {
@@ -43,15 +123,18 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (!old || this._entitiesChanged(old, hass)) this._render();
   }
 
+  _t(key) { return bcmT(this._hass, key); }
+
   _cellIds(battery) {
     if (Array.isArray(battery.cells) && battery.cells.length) return battery.cells;
-    if (!battery.entity_prefix) return [];
+    const prefix = bcmNormalizePrefix(battery.entity_prefix);
+    if (!prefix) return [];
     const count  = parseInt(battery.cell_count, 10) || 0;
     const digits = parseInt(battery.digits, 10) || 2;
     const start  = parseInt(battery.first_cell, 10) || 1;
     const ids = [];
     for (let i = 0; i < count; i++) {
-      ids.push(battery.entity_prefix + String(start + i).padStart(digits, '0'));
+      ids.push(prefix + String(start + i).padStart(digits, '0'));
     }
     return ids;
   }
@@ -81,10 +164,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _spreadLabel(mv) {
-    if (mv > this._thresholds.critical) return 'Kritisch';
-    if (mv > this._thresholds.balance)  return 'Balancing n&ouml;tig';
-    if (mv > this._thresholds.watch)    return 'Beobachten';
-    return 'Gut';
+    if (mv > this._thresholds.critical) return this._t('status_critical');
+    if (mv > this._thresholds.balance)  return this._t('status_balance');
+    if (mv > this._thresholds.watch)    return this._t('status_watch');
+    return this._t('status_good');
   }
 
   _peakKey(key)    { return 'bcm_peak_' + key; }
@@ -102,8 +185,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const current = this._getPeak(key);
     if (!current || rounded > current.spread) {
       const now = new Date();
-      const ts = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-               + ' ' + now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      const locale = bcmLang(this._hass) === 'de' ? 'de-DE' : 'en-GB';
+      const ts = now.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
+               + ' ' + now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
       localStorage.setItem(this._peakKey(key), JSON.stringify({ spread: rounded, ts }));
     }
   }
@@ -141,7 +225,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (!cells.length) return null;
     const cellMin = Math.min(...cells);
     const cellMax = Math.max(...cells);
-    // Fallbacks aus Zellwerten, falls keine Template-Sensoren konfiguriert/verfuegbar
+    // Fall back to values computed from the cells when no template sensors
+    // are configured or they are unavailable.
     return {
       cells,
       spreadMv: this._stateVal(battery.spread) ?? (cellMax - cellMin) * 1000,
@@ -177,9 +262,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   _renderBattery(battery) {
     const data = this._data(battery);
-    const name = battery.name || 'Batterie';
+    const name = battery.name || this._t('battery');
     if (!data) {
-      return '<div class="battery-section"><div class="battery-header"><span class="battery-name">' + name + '</span></div><p class="unavailable">Keine Daten</p></div>';
+      return '<div class="battery-section"><div class="battery-header"><span class="battery-name">' + name + '</span></div><p class="unavailable">' + this._t('no_data') + '</p></div>';
     }
 
     const { cells, spreadMv, min, max, mean } = data;
@@ -202,7 +287,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">&#9888;</span><span class="warn-text">Spread ' + Math.round(spreadMv) + ' mV &mdash; ' + label + '</span><button class="warn-dismiss" data-key="' + key + '" title="Schlie&szlig;en">&#x2715;</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">&#9888;</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV &mdash; ' + label + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">&#x2715;</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -215,10 +300,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     const statsHtml = showStats
       ? '<div class="stats-row">'
-        + '<div class="stat"><span class="stat-lbl">Min</span><span class="stat-val">' + fmt(min) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">Mean</span><span class="stat-val">' + fmt(mean) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">Max</span><span class="stat-val">' + fmt(max) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">Spread</span><span class="stat-val" style="color:' + color + ';">' + Math.round(spreadMv) + ' mV</span></div>'
+        + '<div class="stat"><span class="stat-lbl">' + this._t('min') + '</span><span class="stat-val">' + fmt(min) + '</span></div>'
+        + '<div class="stat"><span class="stat-lbl">' + this._t('mean') + '</span><span class="stat-val">' + fmt(mean) + '</span></div>'
+        + '<div class="stat"><span class="stat-lbl">' + this._t('max') + '</span><span class="stat-val">' + fmt(max) + '</span></div>'
+        + '<div class="stat"><span class="stat-lbl">' + this._t('spread') + '</span><span class="stat-val" style="color:' + color + ';">' + Math.round(spreadMv) + ' mV</span></div>'
         + '</div>'
       : '';
 
@@ -227,9 +312,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
       const peakColor = peak ? this._spreadColor(peak.spread) : '#22c55e';
       const peakVal   = peak ? peak.spread + ' mV' : '-';
       const peakTs    = peak ? '<span class="peak-ts">' + peak.ts + '</span>' : '';
-      const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="Peak zur&uuml;cksetzen">&#x21ba;</button>' : '';
+      const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">&#x21BA;</button>' : '';
       peakHtml = '<div class="peak-row">'
-        + '<span class="peak-label">Peak-Spread:</span>'
+        + '<span class="peak-label">' + this._t('peak_label') + '</span>'
         + '<span class="peak-val" style="color:' + peakColor + ';">' + peakVal + '</span>'
         + peakTs + peakReset
         + '</div>';
@@ -297,14 +382,14 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return {
       title: 'Battery Cell Monitoring',
       batteries: [
-        { name: 'Batterie 1', entity_prefix: '', cell_count: 14, digits: 2,
+        { name: 'Battery 1', entity_prefix: '', cell_count: 14, digits: 2,
           show_status: true, show_chart: true, show_stats: true, show_peak: true },
       ],
     };
   }
 }
 
-// --- editor -----------------------------------------------------------------
+// --- editor -------------------------------------------------------------
 
 class BatteryCellMonitoringEditor extends HTMLElement {
   constructor() {
@@ -320,10 +405,12 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this.shadowRoot.querySelectorAll('ha-form').forEach(f => { f.hass = hass; });
   }
 
+  _t(key) { return bcmT(this._hass, key); }
+
   setConfig(config) {
     this._config = JSON.parse(JSON.stringify(config || {}));
     if (!Array.isArray(this._config.batteries)) this._config.batteries = [];
-    if (this._editing) return; // eigene Aenderung -> kein Re-Render, Fokus erhalten
+    if (this._editing) return; // own change -> skip re-render to keep focus
     const scroller = this._findScroller();
     const saved = scroller ? scroller.scrollTop : null;
     this._render();
@@ -369,7 +456,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
 
   _addBattery() {
     this._config.batteries.push({
-      name: 'Batterie ' + (this._config.batteries.length + 1),
+      name: this._t('battery') + ' ' + (this._config.batteries.length + 1),
       entity_prefix: '',
       cell_count: 14,
       digits: 2,
@@ -383,11 +470,11 @@ class BatteryCellMonitoringEditor extends HTMLElement {
 
   _batterySchema() {
     return [
-      { name: 'name', label: 'Bezeichnung', selector: { text: {} } },
-      { name: 'entity_prefix', label: 'Entity-Stamm der Zellen', selector: { text: {} } },
+      { name: 'name', label: this._t('label_name'), selector: { text: {} } },
+      { name: 'entity_prefix', label: this._t('label_prefix'), selector: { text: {} } },
       { type: 'grid', name: '', schema: [
-        { name: 'cell_count', label: 'Anzahl Zellen', selector: { number: { min: 1, max: 32, mode: 'box' } } },
-        { name: 'digits', label: 'Stellen der Nummer', selector: { number: { min: 1, max: 3, mode: 'box' } } },
+        { name: 'cell_count', label: this._t('label_cell_count'), selector: { number: { min: 1, max: 32, mode: 'box' } } },
+        { name: 'digits', label: this._t('label_digits'), selector: { number: { min: 1, max: 3, mode: 'box' } } },
       ]},
     ];
   }
@@ -408,7 +495,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     b.entity_prefix = values.entity_prefix || '';
     b.cell_count    = parseInt(values.cell_count, 10) || 1;
     b.digits        = parseInt(values.digits, 10) || 1;
-    // Bei Wechsel auf Prefix-Modus altes cells-Array entfernen
+    // Drop a legacy cells array once the prefix mode is used.
     if (b.entity_prefix && Array.isArray(b.cells)) delete b.cells;
     this._fire(false);
   }
@@ -422,13 +509,13 @@ class BatteryCellMonitoringEditor extends HTMLElement {
 
   _optionRows(i, b) {
     const opts = [
-      ['show_status', 'Zustand (Badge)'],
-      ['show_chart', 'Balkendiagramm'],
-      ['show_stats', 'Werte (Min/Mean/Max/Spread)'],
-      ['show_peak', 'Spread-Peak mit Reset'],
+      ['show_status', this._t('opt_status')],
+      ['show_chart',  this._t('opt_chart')],
+      ['show_stats',  this._t('opt_stats')],
+      ['show_peak',   this._t('opt_peak')],
     ];
     return '<div class="options">'
-      + '<div class="options-title">Anzeige</div>'
+      + '<div class="options-title">' + this._t('display') + '</div>'
       + opts.map(([key, label]) =>
         '<div class="opt-row">'
         + '<ha-switch id="opt-' + i + '-' + key + '" data-idx="' + i + '" data-option="' + key + '"' + (b[key] !== false ? ' checked' : '') + '></ha-switch>'
@@ -444,11 +531,11 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     const batteryBlocks = batteries.map((b, i) => {
       return '<div class="battery-box">'
         + '<div class="battery-box-header">'
-        + '<span class="battery-box-title">Batterie ' + (i + 1) + (b.name ? ' &ndash; ' + b.name : '') + '</span>'
+        + '<span class="battery-box-title">' + this._t('battery') + ' ' + (i + 1) + (b.name ? ' &ndash; ' + b.name : '') + '</span>'
         + '<span class="battery-box-actions">'
-        + '<button class="icon-btn" data-action="up" data-idx="' + i + '" title="Nach oben"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
-        + '<button class="icon-btn" data-action="down" data-idx="' + i + '" title="Nach unten"' + (i === batteries.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
-        + '<button class="icon-btn danger" data-action="remove" data-idx="' + i + '" title="Entfernen">&#x2715;</button>'
+        + '<button class="icon-btn" data-action="up" data-idx="' + i + '" title="' + this._t('move_up') + '"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
+        + '<button class="icon-btn" data-action="down" data-idx="' + i + '" title="' + this._t('move_down') + '"' + (i === batteries.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
+        + '<button class="icon-btn danger" data-action="remove" data-idx="' + i + '" title="' + this._t('remove') + '">&#x2715;</button>'
         + '</span>'
         + '</div>'
         + '<div class="battery-box-body">'
@@ -480,13 +567,13 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<div class="editor">'
       + '<ha-form id="title-form"></ha-form>'
       + batteryBlocks
-      + '<button class="add-btn" id="add-battery">+ Batterie hinzuf&uuml;gen</button>'
+      + '<button class="add-btn" id="add-battery">' + this._t('add_battery') + '</button>'
       + '</div>';
 
-    // Titel-Formular
+    // Title form
     const titleForm = this.shadowRoot.getElementById('title-form');
     titleForm.hass = this._hass;
-    titleForm.schema = [{ name: 'title', label: 'Titel der Kachel', selector: { text: {} } }];
+    titleForm.schema = [{ name: 'title', label: this._t('card_title'), selector: { text: {} } }];
     titleForm.data = { title: this._config.title || '' };
     titleForm.computeLabel = s => s.label ?? s.name;
     titleForm.addEventListener('value-changed', ev => {
@@ -495,7 +582,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       this._fire(false);
     });
 
-    // Batterie-Formulare
+    // Battery forms
     batteries.forEach((b, i) => {
       const form = this.shadowRoot.getElementById('battery-form-' + i);
       if (!form) return;
@@ -508,14 +595,14 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       });
     });
 
-    // Anzeige-Switches
+    // Display switches
     this.shadowRoot.querySelectorAll('ha-switch[data-option]').forEach(sw => {
       sw.addEventListener('change', () => {
         this._toggleOption(parseInt(sw.dataset.idx, 10), sw.dataset.option, sw.checked);
       });
     });
 
-    // Buttons
+    // Reorder / remove / add buttons
     this.shadowRoot.querySelectorAll('.icon-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx, 10);
@@ -535,6 +622,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'ha-battery-cell-monitoring',
   name: 'Battery Cell Monitoring',
-  description: 'Einzelzellspannungen, Spread-Analyse und Warnungen fuer Batteriespeicher.',
+  description: 'Per-cell voltages, spread analysis and warnings for home battery storage.',
   preview: false,
 });
