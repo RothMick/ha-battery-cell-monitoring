@@ -335,19 +335,25 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const showStats  = battery.show_stats  !== false;
     const showPeak   = battery.show_peak   !== false;
 
-    if (showPeak) this._updatePeak(key, spreadMv);
-    const peak = showPeak ? this._getPeak(key) : null;
+    // Peak tracking runs independently of the display options so the
+    // badge can always rate the peak, not just the current spread.
+    this._updatePeak(key, spreadMv);
+    const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
-    const label = this._spreadLabel(spreadMv);
     const showWarn = showStatus && spreadMv > this._thresholds.watch && !this._isDismissed(key, spreadMv);
 
+    // The status badge rates the peak spread (falls back to the current
+    // spread until a peak has been recorded).
+    const badgeMv = peak ? peak.spread : Math.round(spreadMv);
+    const badgeColor = this._spreadColor(badgeMv);
+    const badgeLabel = this._spreadLabel(badgeMv);
     const badge = showStatus
-      ? '<span class="spread-badge" style="color:' + color + ';border-color:' + color + ';">' + Math.round(spreadMv) + ' mV – ' + label + '</span>'
+      ? '<span class="spread-badge" style="color:' + badgeColor + ';border-color:' + badgeColor + ';">' + badgeMv + ' mV – ' + badgeLabel + '</span>'
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV — ' + label + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV — ' + this._spreadLabel(spreadMv) + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
