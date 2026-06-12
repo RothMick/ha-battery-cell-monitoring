@@ -286,19 +286,30 @@ class BatteryCellMonitoringCard extends HTMLElement {
   // Writes the peaks as a compact array ordered by display position:
   // [{"i":<battery key>,"s":<spread mV>,"t":<timestamp>}, ...]
   _writePeaks(byKey) {
-    const arr = this._config.batteries
-      .map(b => {
-        const k = this._batteryKey(b);
-        const e = byKey[k];
-        if (!e) return null;
-        const entry = { i: k, s: e.s, t: e.t };
-        if (e.d) entry.d = 1; // hint dismissed for this peak
-        return entry;
-      })
-      .filter(Boolean);
+    const mk = (k, e) => {
+      const entry = { i: k, s: e.s, t: e.t };
+      if (e.d) entry.d = 1; // hint dismissed for this peak
+      return entry;
+    };
+    const arr = [];
+    const seen = new Set();
+    // Own batteries first, in display order.
+    for (const b of this._config.batteries) {
+      const k = this._batteryKey(b);
+      seen.add(k);
+      if (byKey[k]) arr.push(mk(k, byKey[k]));
+    }
+    // Preserve entries of other card instances/configs - dropping them
+    // makes two cards overwrite each other in an endless write loop.
+    for (const [k, e] of Object.entries(byKey)) {
+      if (!seen.has(k)) arr.push(mk(k, e));
+    }
+    const value = JSON.stringify(arr);
+    const cur = this._hass.states[this._peakHelper()];
+    if (cur && cur.state === value) return; // no-op writes just cause churn
     this._hass.callService('input_text', 'set_value', {
       entity_id: this._peakHelper(),
-      value: JSON.stringify(arr),
+      value,
     });
   }
 
