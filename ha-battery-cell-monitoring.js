@@ -38,6 +38,9 @@ const BCM_TRANSLATIONS = {
     reset_peak:       'Reset peak',
     confirm_reset:    'Really reset the peak spread?',
     confirm_title:    'Confirm reset',
+    dismiss_title:    'Delete hint',
+    dismiss_confirm:  'Really delete this hint?',
+    delete:           'Delete',
     cancel:           'Cancel',
     warn_balancing:   'Perform balancing',
     warn_deactivate:  'Deactivate battery',
@@ -79,6 +82,9 @@ const BCM_TRANSLATIONS = {
     reset_peak:       'Peak zurücksetzen',
     confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
     confirm_title:    'Reset bestätigen',
+    dismiss_title:    'Hinweis löschen',
+    dismiss_confirm:  'Hinweis wirklich löschen?',
+    delete:           'Löschen',
     cancel:           'Abbrechen',
     warn_balancing:   'Balancing durchführen',
     warn_deactivate:  'Batterie deaktivieren',
@@ -297,22 +303,32 @@ class BatteryCellMonitoringCard extends HTMLElement {
     this._writePeaks(byKey);
   }
 
-  _confirmReset(key) {
+  _confirmDialog(title, text, okLabel, onOk) {
     this._dialogOpen = true;
     const ov = document.createElement('div');
     ov.className = 'bcm-overlay';
     ov.innerHTML = '<div class="bcm-dialog">'
-      + '<div class="bcm-dialog-title">' + this._t('confirm_title') + '</div>'
-      + '<div class="bcm-dialog-text">' + this._t('confirm_reset') + '</div>'
+      + '<div class="bcm-dialog-title">' + title + '</div>'
+      + '<div class="bcm-dialog-text">' + text + '</div>'
       + '<div class="bcm-dialog-actions">'
       + '<button class="bcm-btn" id="bcm-cancel">' + this._t('cancel') + '</button>'
-      + '<button class="bcm-btn" id="bcm-ok">' + this._t('reset_peak') + '</button>'
+      + '<button class="bcm-btn" id="bcm-ok">' + okLabel + '</button>'
       + '</div></div>';
     const close = () => { this._dialogOpen = false; ov.remove(); this._render(); };
     ov.addEventListener('click', e => { if (e.target === ov) close(); });
     ov.querySelector('#bcm-cancel').addEventListener('click', close);
-    ov.querySelector('#bcm-ok').addEventListener('click', () => { close(); this._resetPeak(key); });
+    ov.querySelector('#bcm-ok').addEventListener('click', () => { close(); onOk(); });
     this.shadowRoot.appendChild(ov);
+  }
+
+  _confirmReset(key) {
+    this._confirmDialog(this._t('confirm_title'), this._t('confirm_reset'), this._t('reset_peak'),
+      () => this._resetPeak(key));
+  }
+
+  _confirmDismiss(key) {
+    this._confirmDialog(this._t('dismiss_title'), this._t('dismiss_confirm'), this._t('delete'),
+      () => this._dismiss(key));
   }
 
   _resetPeak(key) {
@@ -429,7 +445,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';background:' + warnLvl.color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';background:' + warnLvl.color + '18;"><span class="warn-icon">⚠</span><span class="warn-text" style="color:' + warnLvl.color + ';">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -515,7 +531,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '</ha-card>';
 
     this.shadowRoot.querySelectorAll('.warn-dismiss').forEach(btn => {
-      btn.addEventListener('click', () => this._dismiss(btn.dataset.key));
+      btn.addEventListener('click', () => this._confirmDismiss(btn.dataset.key));
     });
     this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
       btn.addEventListener('click', () => this._confirmReset(btn.dataset.key));
