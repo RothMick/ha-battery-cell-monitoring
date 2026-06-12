@@ -257,7 +257,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
       .map(b => {
         const k = this._batteryKey(b);
         const e = byKey[k];
-        return e ? { i: k, s: e.s, t: e.t } : null;
+        if (!e) return null;
+        const entry = { i: k, s: e.s, t: e.t };
+        if (e.d) entry.d = 1; // hint dismissed for this peak
+        return entry;
       })
       .filter(Boolean);
     this._hass.callService('input_text', 'set_value', {
@@ -298,8 +301,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const current = peaks.find(p => p.i === key);
     if (current && rounded <= current.s) return;
     const byKey = {};
-    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t }; });
-    byKey[key] = { s: rounded, t: this._nowTs() };
+    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
+    byKey[key] = { s: rounded, t: this._nowTs() }; // new peak: dismissed flag cleared
     this._writePeaks(byKey);
   }
 
@@ -342,11 +345,16 @@ class BatteryCellMonitoringCard extends HTMLElement {
       return;
     }
     const byKey = {};
-    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t }; });
+    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
     this._writePeaks(byKey); // re-render follows from the helper state change
   }
 
   _isDismissed(key, spreadMv) {
+    const peaks = this._readPeaks();
+    if (peaks !== null) {
+      const e = peaks.find(p => p.i === key);
+      return !!(e && e.d);
+    }
     try {
       const d = JSON.parse(localStorage.getItem(this._dismissKey(key)));
       return d && d.spread >= Math.round(spreadMv);
@@ -354,6 +362,15 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _dismiss(key) {
+    const peaks = this._readPeaks();
+    if (peaks !== null) {
+      const byKey = {};
+      peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
+      if (!byKey[key]) return; // banner only shows with a recorded peak
+      byKey[key].d = 1;
+      this._writePeaks(byKey); // re-render follows from the helper state change
+      return;
+    }
     const battery = this._config.batteries.find(b => this._batteryKey(b) === key);
     if (!battery) return;
     const data = this._data(battery);
