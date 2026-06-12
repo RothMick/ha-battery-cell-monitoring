@@ -36,6 +36,7 @@ const BCM_TRANSLATIONS = {
     peak_label:       'Peak spread:',
     dismiss:          'Dismiss',
     reset_peak:       'Reset peak',
+    confirm_reset:    'Really reset the peak spread?',
     battery:          'Battery',
     card_title:       'Card title',
     peak_helper:      'Peak helper (input_text)',
@@ -66,6 +67,7 @@ const BCM_TRANSLATIONS = {
     peak_label:       'Peak-Spread:',
     dismiss:          'Schließen',
     reset_peak:       'Peak zurücksetzen',
+    confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
     battery:          'Batterie',
     card_title:       'Titel der Kachel',
     peak_helper:      'Peak-Helfer (input_text)',
@@ -353,7 +355,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       : '';
 
     const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._t('spread') + ' ' + Math.round(spreadMv) + ' mV — ' + this._spreadLabel(spreadMv) + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
+      ? '<div class="warn-banner" style="border-color:' + color + ';background:' + color + '18;"><span class="warn-icon">⚠</span><span class="warn-text">' + this._spreadLabel(spreadMv) + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => v.toFixed(3) + ' V';
@@ -434,7 +436,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
       btn.addEventListener('click', () => this._dismiss(btn.dataset.key));
     });
     this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
-      btn.addEventListener('click', () => this._resetPeak(btn.dataset.key));
+      btn.addEventListener('click', () => {
+        if (confirm(this._t('confirm_reset'))) this._resetPeak(btn.dataset.key);
+      });
     });
   }
 
