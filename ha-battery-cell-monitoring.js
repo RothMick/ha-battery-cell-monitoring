@@ -37,6 +37,8 @@ const BCM_TRANSLATIONS = {
     dismiss:          'Dismiss',
     reset_peak:       'Reset peak',
     confirm_reset:    'Really reset the peak spread?',
+    confirm_title:    'Confirm reset',
+    cancel:           'Cancel',
     warn_balancing:   'Perform balancing',
     warn_deactivate:  'Deactivate battery',
     status_settings:  'Status settings',
@@ -76,6 +78,8 @@ const BCM_TRANSLATIONS = {
     dismiss:          'Schließen',
     reset_peak:       'Peak zurücksetzen',
     confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
+    confirm_title:    'Reset bestätigen',
+    cancel:           'Abbrechen',
     warn_balancing:   'Balancing durchführen',
     warn_deactivate:  'Batterie deaktivieren',
     status_settings:  'Status Einstellungen',
@@ -293,6 +297,24 @@ class BatteryCellMonitoringCard extends HTMLElement {
     this._writePeaks(byKey);
   }
 
+  _confirmReset(key) {
+    this._dialogOpen = true;
+    const ov = document.createElement('div');
+    ov.className = 'bcm-overlay';
+    ov.innerHTML = '<div class="bcm-dialog">'
+      + '<div class="bcm-dialog-title">' + this._t('confirm_title') + '</div>'
+      + '<div class="bcm-dialog-text">' + this._t('confirm_reset') + '</div>'
+      + '<div class="bcm-dialog-actions">'
+      + '<button class="bcm-btn" id="bcm-cancel">' + this._t('cancel') + '</button>'
+      + '<button class="bcm-btn" id="bcm-ok">' + this._t('reset_peak') + '</button>'
+      + '</div></div>';
+    const close = () => { this._dialogOpen = false; ov.remove(); this._render(); };
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    ov.querySelector('#bcm-cancel').addEventListener('click', close);
+    ov.querySelector('#bcm-ok').addEventListener('click', () => { close(); this._resetPeak(key); });
+    this.shadowRoot.appendChild(ov);
+  }
+
   _resetPeak(key) {
     const peaks = this._readPeaks();
     if (peaks === null) {
@@ -317,7 +339,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (!battery) return;
     const data = this._data(battery);
     if (!data) return;
-    localStorage.setItem(this._dismissKey(key), JSON.stringify({ spread: Math.round(data.spreadMv) }));
+    const peak = this._getPeak(key);
+    const mv = peak ? peak.spread : Math.round(data.spreadMv);
+    localStorage.setItem(this._dismissKey(key), JSON.stringify({ spread: mv }));
     this._render();
   }
 
@@ -389,12 +413,15 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
-    const warnLvl = this._matchLevel(this._warnList(), spreadMv);
-    const showWarn = showStatus && !!warnLvl && !this._isDismissed(key, spreadMv);
+    const peakMv = peak ? peak.spread : Math.round(spreadMv);
+    // Warnings rate the peak spread as well - the hint stays visible
+    // until the user resets the peak (ideally after balancing).
+    const warnLvl = this._matchLevel(this._warnList(), peakMv);
+    const showWarn = showStatus && !!warnLvl && !this._isDismissed(key, peakMv);
 
     // The status badge rates the peak spread (falls back to the current
     // spread until a peak has been recorded).
-    const badgeMv = peak ? peak.spread : Math.round(spreadMv);
+    const badgeMv = peakMv;
     const badgeColor = this._spreadColor(badgeMv);
     const badgeLabel = this._spreadLabel(badgeMv);
     const badge = showStatus
@@ -443,6 +470,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   _render() {
     if (!this._hass || !this._config) return;
+    if (this._dialogOpen) return; // keep the confirmation dialog alive
 
     const sections = this._config.batteries.map(b => this._renderBattery(b)).join('<div class="divider"></div>');
 
@@ -473,6 +501,13 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.warn-dismiss{background:none;border:none;cursor:pointer;padding:0 2px;color:var(--secondary-text-color);font-size:14px;line-height:1}'
       + '.warn-dismiss:hover{color:var(--primary-text-color)}'
       + '.unavailable{font-size:13px;font-style:italic;color:var(--secondary-text-color)}'
+      + '.bcm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}'
+      + '.bcm-dialog{background:var(--card-background-color,#1c1c1e);border-radius:14px;padding:20px;max-width:320px;width:80%;box-shadow:0 8px 32px rgba(0,0,0,0.4)}'
+      + '.bcm-dialog-title{font-size:17px;font-weight:600;color:var(--primary-text-color);margin-bottom:8px}'
+      + '.bcm-dialog-text{font-size:14px;color:var(--primary-text-color);margin-bottom:18px}'
+      + '.bcm-dialog-actions{display:flex;justify-content:flex-end;gap:6px}'
+      + '.bcm-btn{background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;color:var(--primary-color);text-transform:uppercase;letter-spacing:.03em}'
+      + '.bcm-btn:hover{background:var(--secondary-background-color)}'
       + '</style>'
       + '<ha-card>'
       + (this._config.title ? '<div class="card-title">' + this._config.title + '</div>' : '')
@@ -483,9 +518,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       btn.addEventListener('click', () => this._dismiss(btn.dataset.key));
     });
     this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (confirm(this._t('confirm_reset'))) this._resetPeak(btn.dataset.key);
-      });
+      btn.addEventListener('click', () => this._confirmReset(btn.dataset.key));
     });
   }
 
