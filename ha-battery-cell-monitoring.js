@@ -507,16 +507,17 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return { points, start: start.getTime(), end: Date.now() };
   }
 
-  // Builds an SVG path from [x,y] points; optionally smoothed with
-  // monotone cubic interpolation (Fritsch-Carlson, like d3 curveMonotoneX).
-  // Monotone tangents cannot overshoot the data range, so stepped sensor
-  // history stays inside the min/max envelope. lead is 'M' (new path) or
-  // 'L' (continue an existing path, used for the back side of the band).
-  _histPath(pts, smooth, lead) {
+  _linPath(pts, lead) {
     const f = n => n.toFixed(1);
-    if (!smooth || pts.length < 3) {
-      return pts.map((p, i) => (i ? 'L' : lead) + f(p[0]) + ',' + f(p[1])).join(' ');
-    }
+    return pts.map((p, i) => (i ? 'L' : lead) + f(p[0]) + ',' + f(p[1])).join(' ');
+  }
+
+  // Monotone cubic interpolation (Fritsch-Carlson, like d3 curveMonotoneX)
+  // for points with ASCENDING x. Returns Bezier segments
+  // [x1,y1,c1x,c1y,c2x,c2y,x2,y2] so a path can be emitted in either
+  // direction - reversing the input points instead would break the
+  // monotonicity math, which assumes ascending x.
+  _monotoneSegments(pts) {
     const n = pts.length;
     const dx = [], slope = [];
     for (let i = 0; i < n - 1; i++) {
@@ -535,13 +536,36 @@ class BatteryCellMonitoringCard extends HTMLElement {
         tan[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
       }
     }
-    let d = lead + f(pts[0][0]) + ',' + f(pts[0][1]);
+    const segs = [];
     for (let i = 0; i < n - 1; i++) {
-      const x1 = pts[i][0], y1 = pts[i][1], x2 = pts[i + 1][0], y2 = pts[i + 1][1];
       const h = dx[i] / 3;
-      d += ' C' + f(x1 + h) + ',' + f(y1 + tan[i] * h)
-         + ' ' + f(x2 - h) + ',' + f(y2 - tan[i + 1] * h)
-         + ' ' + f(x2) + ',' + f(y2);
+      segs.push([
+        pts[i][0], pts[i][1],
+        pts[i][0] + h, pts[i][1] + tan[i] * h,
+        pts[i + 1][0] - h, pts[i + 1][1] - tan[i + 1] * h,
+        pts[i + 1][0], pts[i + 1][1],
+      ]);
+    }
+    return segs;
+  }
+
+  _segPath(segs, first) {
+    const f = n => n.toFixed(1);
+    let d = 'M' + f(first[0]) + ',' + f(first[1]);
+    for (const s of segs) {
+      d += ' C' + f(s[2]) + ',' + f(s[3]) + ' ' + f(s[4]) + ',' + f(s[5]) + ' ' + f(s[6]) + ',' + f(s[7]);
+    }
+    return d;
+  }
+
+  // Emits the segments backwards (end -> start); a cubic Bezier reversed
+  // is the same curve with swapped control points.
+  _segPathRev(segs) {
+    const f = n => n.toFixed(1);
+    let d = '';
+    for (let i = segs.length - 1; i >= 0; i--) {
+      const s = segs[i];
+      d += ' C' + f(s[4]) + ',' + f(s[5]) + ' ' + f(s[2]) + ',' + f(s[3]) + ' ' + f(s[0]) + ',' + f(s[1]);
     }
     return d;
   }
@@ -588,10 +612,21 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const bandHex = /^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6';
     const lineColor = /^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : 'var(--primary-text-color)';
     const maxPts  = pts.map(p => [x(p.t), y(p.mx)]);
-    const minPts  = pts.slice().reverse().map(p => [x(p.t), y(p.mn)]);
+    const minPts  = pts.map(p => [x(p.t), y(p.mn)]);
     const meanPts = pts.map(p => [x(p.t), y(p.mean)]);
-    const band = this._histPath(maxPts, smooth, 'M') + ' ' + this._histPath(minPts, smooth, 'L') + ' Z';
-    const meanPath = this._histPath(meanPts, smooth, 'M');
+    let band, meanPath;
+    if (smooth && pts.length > 2) {
+      const f = n => n.toFixed(1);
+      const lastMin = minPts[minPts.length - 1];
+      band = this._segPath(this._monotoneSegments(maxPts), maxPts[0])
+        + ' L' + f(lastMin[0]) + ',' + f(lastMin[1])
+        + this._segPathRev(this._monotoneSegments(minPts))
+        + ' Z';
+      meanPath = this._segPath(this._monotoneSegments(meanPts), meanPts[0]);
+    } else {
+      band = this._linPath(maxPts, 'M') + ' ' + this._linPath(minPts.slice().reverse(), 'L') + ' Z';
+      meanPath = this._linPath(meanPts, 'M');
+    }
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
       + '<path d="' + band + '" fill="' + bandHex + '4D" stroke="none"/>'
       + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5"/>'
