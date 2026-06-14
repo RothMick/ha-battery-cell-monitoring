@@ -2,6 +2,9 @@
 
 Home Assistant Lovelace custom card for monitoring per-cell voltages of home battery storage systems (e.g. Marstek B2500).
 
+<img width="521" height="443" alt="Bildschirmfoto 2026-06-14 um 11 57 28" src="https://github.com/user-attachments/assets/746b107c-c4bf-46d6-89f7-0a309cf842e0" />
+
+
 ## Features
 
 - **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
