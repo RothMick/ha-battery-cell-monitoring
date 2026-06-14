@@ -640,10 +640,19 @@ class BatteryCellMonitoringCard extends HTMLElement {
       const xs = Array.from({ length: steps + 1 }, (_, j) => xStart + (xEnd - xStart) * j / steps);
       const yMaxS = this._sampleCurve(maxPts, xs);
       const yMinS = this._sampleCurve(minPts, xs);
-      const yMeanS = this._sampleCurve(meanPts, xs);
       const top = xs.map((X, j) => [X, Math.min(yMaxS[j], yMinS[j])]);
       const bot = xs.map((X, j) => [X, Math.max(yMaxS[j], yMinS[j])]);
-      const mid = xs.map((X, j) => [X, Math.min(Math.max(yMeanS[j], top[j][1]), bot[j][1])]);
+      // Place the mean by its relative position inside the band (0 = min,
+      // 1 = max), not as an independent absolute curve. Smoothing min/max/mean
+      // separately lets the mean drift outside the (also smoothed) band between
+      // bucket centers; clamping it then pins it flat to an edge. Interpolating
+      // the fraction keeps it proportionally inside the band by construction.
+      const fracPts = pts.map(p => [x(p.t), p.mx > p.mn ? (p.mean - p.mn) / (p.mx - p.mn) : 0.5]);
+      const fracS = this._sampleCurve(fracPts, xs);
+      const mid = xs.map((X, j) => {
+        const f = Math.min(1, Math.max(0, fracS[j]));
+        return [X, bot[j][1] + f * (top[j][1] - bot[j][1])];
+      });
       band = this._linPath(top, 'M') + ' ' + this._linPath(bot.slice().reverse(), 'L') + ' Z';
       meanPath = this._linPath(mid, 'M');
     } else {
