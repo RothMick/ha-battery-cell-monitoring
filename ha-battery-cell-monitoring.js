@@ -70,6 +70,7 @@ const BCM_TRANSLATIONS = {
     hist_minutes:     'Window (minutes)',
     hist_band:        'Band (min-max)',
     hist_line:        'Mean line',
+    hist_edge:        'Min/max lines',
     hist_smooth:      'Smoothed curve',
     hist_sensors:     'Template sensors (optional)',
     sensor_min:       'Min sensor',
@@ -128,6 +129,7 @@ const BCM_TRANSLATIONS = {
     hist_minutes:     'Zeitfenster (Minuten)',
     hist_band:        'Fläche (Min-Max)',
     hist_line:        'Mittelwert-Linie',
+    hist_edge:        'Min-/Max-Linien',
     hist_smooth:      'Geglättete Kurve',
     hist_sensors:     'Template-Sensoren (optional)',
     sensor_min:       'Min-Sensor',
@@ -626,10 +628,11 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const smooth = doSmooth;
     const bandHex = /^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6';
     const lineColor = /^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : 'var(--primary-text-color)';
+    const edgeColor = /^#[0-9a-fA-F]{6}$/.test(this._config.history_edge_color || '') ? this._config.history_edge_color : '#ff0000';
     const maxPts  = pts.map(p => [x(p.t), y(p.mx)]);
     const minPts  = pts.map(p => [x(p.t), y(p.mn)]);
     const meanPts = pts.map(p => [x(p.t), y(p.mean)]);
-    let band, meanPath;
+    let band, meanPath, maxLinePath, minLinePath;
     if (smooth && pts.length > 2) {
       // Sample both smoothed edges on a fine common x grid and clamp them
       // per sample - independently smoothed edges can cross within a
@@ -655,13 +658,19 @@ class BatteryCellMonitoringCard extends HTMLElement {
       });
       band = this._linPath(top, 'M') + ' ' + this._linPath(bot.slice().reverse(), 'L') + ' Z';
       meanPath = this._linPath(mid, 'M');
+      maxLinePath = this._linPath(top, 'M'); // top edge = max voltage
+      minLinePath = this._linPath(bot, 'M'); // bottom edge = min voltage
     } else {
       band = this._linPath(maxPts, 'M') + ' ' + this._linPath(minPts.slice().reverse(), 'L') + ' Z';
       meanPath = this._linPath(meanPts, 'M');
+      maxLinePath = this._linPath(maxPts, 'M');
+      minLinePath = this._linPath(minPts, 'M');
     }
     const xMid = (padL + W - padR) / 2;
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
-      + '<path d="' + band + '" fill="' + bandHex + '4D" stroke="none"/>'
+      + '<path d="' + band + '" fill="' + bandHex + '" stroke="none"/>'
+      + '<path d="' + maxLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
+      + '<path d="' + minLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + Math.round(vMax * 1000) + ' mV</text>'
       + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + Math.round(vMin * 1000) + ' mV</text>'
@@ -1147,6 +1156,8 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<input type="color" class="lvl-color" data-list="histband" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_band_color || '') ? this._config.history_band_color : '#3b82f6') + '" title="' + this._t('col_color') + '"></div>'
       + '<div class="lvl-row base"><span class="base-label">' + this._t('hist_line') + '</span>'
       + '<input type="color" class="lvl-color" data-list="histline" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_line_color || '') ? this._config.history_line_color : '#ffffff') + '" title="' + this._t('col_color') + '"></div>'
+      + '<div class="lvl-row base"><span class="base-label">' + this._t('hist_edge') + '</span>'
+      + '<input type="color" class="lvl-color" data-list="histedge" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_edge_color || '') ? this._config.history_edge_color : '#ff0000') + '" title="' + this._t('col_color') + '"></div>'
       + '<div class="opt-row"><ha-switch id="hist-smooth"' + (this._config.history_smooth === true ? ' checked' : '') + '></ha-switch>'
       + '<span class="opt-label">' + this._t('hist_smooth') + '</span></div>'
       + (batteries.length ? '<div class="hist-sensors-hdr">' + this._t('hist_sensors') + '</div>'
@@ -1306,6 +1317,11 @@ class BatteryCellMonitoringEditor extends HTMLElement {
         }
         if (inp.dataset.list === 'histline') {
           this._config.history_line_color = inp.value;
+          this._fire(false);
+          return;
+        }
+        if (inp.dataset.list === 'histedge') {
+          this._config.history_edge_color = inp.value;
           this._fire(false);
           return;
         }

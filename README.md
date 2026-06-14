@@ -9,7 +9,7 @@ Home Assistant Lovelace custom card for monitoring per-cell voltages of home bat
 - **Warning hints** — freely configurable levels (threshold, color, hint text) rating the **peak** spread, e.g. "Perform balancing" / "Deactivate battery". A hint stays visible until the peak is reset; dismissing asks for confirmation
 - **Stats row** — current min / mean / max / spread
 - **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). Peak and dismissed state are stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
-- **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero) with the mean as a separate line; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free, edges clamped against crossing); window, band/line colors configurable
+- **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
 - **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for status levels, warning hints, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
 - **Localized** — English and German, follows the HA UI language
 - Works without template sensors — min/max/mean/spread are computed from the cell values when needed
@@ -47,8 +47,9 @@ batteries:
 | `cell_min_color` | color | `#ef4444` | Bar color of the lowest-voltage cell(s) |
 | `cell_max_color` | color | `#22c55e` | Bar color of the highest-voltage cell(s) |
 | `history_minutes` | number | 60 | History chart window in minutes |
-| `history_band_color` | color | `#3b82f6` | Band color (rendered at 30% opacity) |
+| `history_band_color` | color | `#3b82f6` | Band fill color (drawn opaque, exactly as configured) |
 | `history_line_color` | color | theme text color | Mean line color |
+| `history_edge_color` | color | `#ff0000` | Min/max boundary line color |
 | `history_smooth` | bool | false | Smoothed curves instead of stepped raw history |
 
 ### Per battery
