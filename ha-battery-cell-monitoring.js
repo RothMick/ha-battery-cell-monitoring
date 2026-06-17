@@ -545,7 +545,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
   _renderHistory(battery) {
     const h = this._histories?.[this._batteryKey(battery)];
     if (!h || !h.points || h.points.length < 2) return '';
-    const W = 500, H = 122, padL = 38, padR = 4, padT = 6, padB = 18;
+    // Axis labels are HTML around the SVG (see return), so the plot itself
+    // only needs a hair of padding to keep the 1.5px edge strokes unclipped.
+    const W = 500, H = 100, padL = 1, padR = 1, padT = 4, padB = 4;
     const doSmooth = this._config.history_smooth === true;
     const pts = doSmooth ? this._bucketPoints(h.points, h.start, h.end, 80) : h.points;
     if (pts.length < 2) return '';
@@ -596,18 +598,26 @@ class BatteryCellMonitoringCard extends HTMLElement {
       maxLinePath = this._linPath(maxPts, 'M');
       minLinePath = this._linPath(minPts, 'M');
     }
-    const xMid = (padL + W - padR) / 2;
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
+    const svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
       + '<path d="' + band + '" fill="' + bandHex + '" stroke="none"/>'
       + '<path d="' + maxLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<path d="' + minLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<path d="' + meanPath + '" fill="none" stroke="' + lineColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
-      + '<text x="2" y="' + (padT + 8) + '" class="hist-lbl">' + Math.round(vMax * 1000) + ' mV</text>'
-      + '<text x="2" y="' + (H - padB) + '" class="hist-lbl">' + Math.round(vMin * 1000) + ' mV</text>'
-      + '<text x="' + padL + '" y="' + (H - 3) + '" class="hist-lbl">' + this._fmtTime(h.start) + '</text>'
-      + '<text x="' + xMid + '" y="' + (H - 3) + '" class="hist-lbl" text-anchor="middle">' + this._fmtTime((h.start + h.end) / 2) + '</text>'
-      + '<text x="' + (W - padR) + '" y="' + (H - 3) + '" class="hist-lbl" text-anchor="end">' + this._fmtTime(h.end) + '</text>'
       + '</svg>';
+    // Axis labels live in HTML so they render at a real font size instead of
+    // being horizontally stretched by the SVG's preserveAspectRatio="none".
+    return '<div class="hist-wrap">'
+      + '<div class="hist-yaxis">'
+      + '<span class="hist-lbl">' + Math.round(vMax * 1000) + ' mV</span>'
+      + '<span class="hist-lbl">' + Math.round(vMin * 1000) + ' mV</span>'
+      + '</div>'
+      + svg
+      + '<div class="hist-xaxis">'
+      + '<span class="hist-lbl">' + this._fmtTime(h.start) + '</span>'
+      + '<span class="hist-lbl">' + this._fmtTime((h.start + h.end) / 2) + '</span>'
+      + '<span class="hist-lbl">' + this._fmtTime(h.end) + '</span>'
+      + '</div>'
+      + '</div>';
   }
 
   // --- render ---
@@ -731,16 +741,19 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.cell-chart{width:100%;height:64px;display:block;overflow:visible}'
       + '.cell-labels{display:flex;margin-top:3px}'
       + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
-      + '.hist-chart{width:100%;height:122px;display:block;margin-top:8px}'
-      + '.hist-lbl{font-size:9px;fill:var(--secondary-text-color)}'
+      + '.hist-wrap{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:100px auto;column-gap:6px;margin-top:8px}'
+      + '.hist-yaxis{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}'
+      + '.hist-chart{grid-column:2;grid-row:1;width:100%;height:100px;display:block}'
+      + '.hist-xaxis{grid-column:2;grid-row:2;display:flex;justify-content:space-between;margin-top:3px}'
+      + '.hist-lbl{font-size:14px;color:var(--secondary-text-color);line-height:1;white-space:nowrap}'
       + '.stats-row{display:flex;gap:6px;margin-top:10px}'
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
       + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
       + '.stat-val{font-size:14px;font-weight:500;color:var(--primary-text-color);margin-top:2px}'
       + '.peak-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--secondary-background-color);border-radius:8px}'
-      + '.peak-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color);flex-shrink:0}'
+      + '.peak-label{font-size:14px;color:var(--secondary-text-color);flex-shrink:0}'
       + '.peak-val{font-size:14px;font-weight:700;flex-shrink:0}'
-      + '.peak-ts{font-size:11px;color:var(--secondary-text-color);flex:1}'
+      + '.peak-ts{font-size:14px;color:var(--secondary-text-color);flex:1}'
       + '.peak-reset{background:none;border:none;cursor:pointer;color:var(--secondary-text-color);font-size:14px;padding:0 2px;line-height:1;flex-shrink:0}'
       + '.peak-reset:hover{color:var(--primary-text-color)}'
       + '.divider{height:1px;background:var(--divider-color);margin:14px 0}'
