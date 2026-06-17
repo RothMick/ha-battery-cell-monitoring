@@ -745,7 +745,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.hist-yaxis{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}'
       + '.hist-chart{grid-column:2;grid-row:1;width:100%;height:100px;display:block}'
       + '.hist-xaxis{grid-column:2;grid-row:2;display:flex;justify-content:space-between;margin-top:3px}'
-      + '.hist-lbl{font-size:14px;color:var(--secondary-text-color);line-height:1;white-space:nowrap}'
+      + '.hist-lbl{font-size:10px;color:var(--secondary-text-color);line-height:1;white-space:nowrap}'
       + '.stats-row{display:flex;gap:6px;margin-top:10px}'
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
       + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
