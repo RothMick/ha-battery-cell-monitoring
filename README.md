@@ -2,8 +2,9 @@
 
 Home Assistant Lovelace custom card for monitoring per-cell voltages of home battery storage systems (e.g. Marstek B2500).
 
-<img width="521" height="443" alt="ha-battery-cell-monitoring_preview_dark" src="https://github.com/user-attachments/assets/62057891-d2e7-47e3-946f-27fb13b6bd2d" />
+This card was developed for B2500-Marstek batteries but can also be used with other batteries that provide single cell values. A data source for all values—such as [HM2MQTT](https://github.com/tomquist/hm2mqtt)—is required for the B2500-Marstek battery. Setting up a few helper entities is recommended for better performance and history recording. Please refer to the list below.
 
+<img width="521" height="443" alt="ha-battery-cell-monitoring_preview_dark" src="https://github.com/user-attachments/assets/62057891-d2e7-47e3-946f-27fb13b6bd2d" />
 
 ## Features
 
@@ -68,7 +69,7 @@ batteries:
 | `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Display options |
 | `show_history` | bool | false | History chart (min/max band + mean line) |
 
-#### Optional template sensors
+#### Optional helper template sensors
 
 Configurable in the UI editor under **History chart → Template sensors (optional)**:
 
