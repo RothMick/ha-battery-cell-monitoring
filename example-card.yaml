@@ -10,13 +10,6 @@ status_levels:                # badge/stats color levels (below lowest = green/"
   - threshold: 200
     color: '#ef4444'
     label: Kritisch
-warn_levels:                  # warning banner levels (highest match wins)
-  - threshold: 100
-    color: '#f97316'
-    text: Balancing durchfuehren
-  - threshold: 350
-    color: '#ef4444'
-    text: Batterie deaktivieren
 batteries:
   - id: 1234
     name: B2500 1234 (West)

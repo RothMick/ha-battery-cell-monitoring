@@ -10,11 +10,10 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 
 - **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
 - **Status badge** — rates the **peak** spread with freely configurable levels (threshold, color, label); below the lowest threshold a non-deletable "Default" level applies (color configurable)
-- **Warning hints** — freely configurable levels (threshold, color, hint text) rating the **peak** spread, e.g. "Perform balancing" / "Deactivate battery". A hint stays visible until the peak is reset; dismissing asks for confirmation
 - **Stats row** — current min / mean / max / spread
-- **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). Peak and dismissed state are stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
+- **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
 - **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
-- **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for status levels, warning hints, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
+- **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
 - **Localized** — English and German, follows the HA UI language
 - Works without template sensors — min/max/mean/spread are computed from the cell values when needed
 
@@ -43,10 +42,9 @@ batteries:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string | – | Card heading |
-| `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | Helper storing peaks and dismissed state as a JSON array ordered by display position: `[{"i":<id>,"s":<mV>,"t":<timestamp>,"d":1?}, ...]` |
+| `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | Helper storing peaks as a JSON array ordered by display position: `[{"i":<id>,"s":<mV>,"t":<timestamp>}, ...]` |
 | `status_levels` | list | 20/50/200 mV | Status levels `{threshold, color, label}`; highest match wins |
 | `status_base_color` | color | `#22c55e` | Color of the "Default" status below the lowest threshold |
-| `warn_levels` | list | 100/350 mV | Warning hint levels `{threshold, color, text}`; highest match wins |
 | `cell_color` | color | `#3b82f6` | Bar color of normal cells |
 | `cell_min_color` | color | `#ef4444` | Bar color of the lowest-voltage cell(s) |
 | `cell_max_color` | color | `#22c55e` | Bar color of the highest-voltage cell(s) |
@@ -93,7 +91,7 @@ All four are optional. The card works fully without them; they are only relevant
 | 50–200 mV | Balancing needed |
 | > 200 mV | Critical (possible cell defect) |
 
-LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why badge and warning hints rate the tracked peak instead of the momentary spread.
+LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why the status badge rates the tracked peak instead of the momentary spread.
 
 ## Full example
 

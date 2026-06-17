@@ -34,19 +34,12 @@ const BCM_TRANSLATIONS = {
     mean:             'Mean',
     max:              'Max',
     peak_label:       'Peak spread:',
-    dismiss:          'Dismiss',
     reset_peak:       'Reset peak',
     confirm_reset:    'Really reset the peak spread?',
     confirm_title:    'Confirm reset',
-    dismiss_title:    'Delete hint',
-    dismiss_confirm:  'Really delete this hint?',
-    delete:           'Delete',
     cancel:           'Cancel',
-    warn_balancing:   'Perform balancing',
-    warn_deactivate:  'Deactivate battery',
     status_settings:  'Status settings',
     standard:         'Default',
-    warn_settings:    'Warning hints',
     col_threshold:    'Threshold (mV)',
     col_color:        'Color',
     col_text:         'Text',
@@ -93,19 +86,12 @@ const BCM_TRANSLATIONS = {
     mean:             'Mean',
     max:              'Max',
     peak_label:       'Peak-Spread:',
-    dismiss:          'Schließen',
     reset_peak:       'Peak zurücksetzen',
     confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
     confirm_title:    'Reset bestätigen',
-    dismiss_title:    'Hinweis löschen',
-    dismiss_confirm:  'Hinweis wirklich löschen?',
-    delete:           'Löschen',
     cancel:           'Abbrechen',
-    warn_balancing:   'Balancing durchführen',
-    warn_deactivate:  'Batterie deaktivieren',
     status_settings:  'Status Einstellungen',
     standard:         'Standard',
-    warn_settings:    'Warnhinweise',
     col_threshold:    'Schwellwert (mV)',
     col_color:        'Farbe',
     col_text:         'Text',
@@ -242,17 +228,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
     ];
   }
 
-  // Warning levels: configurable list of {threshold, color, text}.
-  _warnList() {
-    const cfg = this._config.warn_levels;
-    if (Array.isArray(cfg) && cfg.length) return cfg;
-    const legacy = (cfg && typeof cfg === 'object') ? cfg : {};
-    return [
-      { threshold: legacy.balancing  ?? 100, color: '#f97316', text: this._t('warn_balancing') },
-      { threshold: legacy.deactivate ?? 350, color: '#ef4444', text: this._t('warn_deactivate') },
-    ];
-  }
-
   // Highest matching level for the given spread, or null.
   _matchLevel(levels, mv) {
     let best = null;
@@ -278,7 +253,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _peakKey(key)    { return 'bcm_peak_' + key; }
-  _dismissKey(key) { return 'bcm_dismiss_' + key; }
 
   _peakHelper() {
     return this._config.peak_helper || 'input_text.battery_cell_monitoring_peaks';
@@ -298,11 +272,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
   // Writes the peaks as a compact array ordered by display position:
   // [{"i":<battery key>,"s":<spread mV>,"t":<timestamp>}, ...]
   _writePeaks(byKey) {
-    const mk = (k, e) => {
-      const entry = { i: k, s: e.s, t: e.t };
-      if (e.d) entry.d = 1; // hint dismissed for this peak
-      return entry;
-    };
+    const mk = (k, e) => ({ i: k, s: e.s, t: e.t });
     const arr = [];
     const seen = new Set();
     // Own batteries first, in display order.
@@ -357,8 +327,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const current = peaks.find(p => p.i === key);
     if (current && rounded <= current.s) return;
     const byKey = {};
-    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
-    byKey[key] = { s: rounded, t: this._nowTs() }; // new peak: dismissed flag cleared
+    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t }; });
+    byKey[key] = { s: rounded, t: this._nowTs() };
     this._writePeaks(byKey);
   }
 
@@ -385,15 +355,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       () => this._resetPeak(key));
   }
 
-  _confirmDismiss(key) {
-    this._confirmDialog(this._t('dismiss_title'), this._t('dismiss_confirm'), this._t('delete'),
-      () => this._dismiss(key));
-  }
-
   _resetPeak(key) {
-    // Resetting the peak also clears a dismissed hint, so a newly
-    // reached threshold shows the warning banner again.
-    localStorage.removeItem(this._dismissKey(key));
     const peaks = this._readPeaks();
     if (peaks === null) {
       localStorage.removeItem(this._peakKey(key));
@@ -401,40 +363,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
       return;
     }
     const byKey = {};
-    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
+    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t }; });
     this._writePeaks(byKey); // re-render follows from the helper state change
-  }
-
-  _isDismissed(key, spreadMv) {
-    const peaks = this._readPeaks();
-    if (peaks !== null) {
-      const e = peaks.find(p => p.i === key);
-      return !!(e && e.d);
-    }
-    try {
-      const d = JSON.parse(localStorage.getItem(this._dismissKey(key)));
-      return d && d.spread >= Math.round(spreadMv);
-    } catch { return false; }
-  }
-
-  _dismiss(key) {
-    const peaks = this._readPeaks();
-    if (peaks !== null) {
-      const byKey = {};
-      peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, d: p.d }; });
-      if (!byKey[key]) return; // banner only shows with a recorded peak
-      byKey[key].d = 1;
-      this._writePeaks(byKey); // re-render follows from the helper state change
-      return;
-    }
-    const battery = this._config.batteries.find(b => this._batteryKey(b) === key);
-    if (!battery) return;
-    const data = this._data(battery);
-    if (!data) return;
-    const peak = this._getPeak(key);
-    const mv = peak ? peak.spread : Math.round(data.spreadMv);
-    localStorage.setItem(this._dismissKey(key), JSON.stringify({ spread: mv }));
-    this._render();
   }
 
   _stateVal(entityId) {
@@ -711,7 +641,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
     }).join('');
     const totalW = cells.length * (barW + gap) - gap;
     const my = toY(mean).toFixed(1);
-    const meanLine = '<line x1="0" y1="' + my + '" x2="' + totalW + '" y2="' + my + '" stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/>';
+    const meanLine = '<line x1="0" y1="' + my + '" x2="' + totalW + '" y2="' + my + '" stroke="var(--secondary-text-color)" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/>';
     return '<svg viewBox="0 0 ' + totalW + ' ' + H + '" class="cell-chart" preserveAspectRatio="none">' + bars + meanLine + '</svg>';
   }
 
@@ -738,10 +668,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     const color = this._spreadColor(spreadMv);
     const peakMv = peak ? peak.spread : Math.round(spreadMv);
-    // Warnings rate the peak spread as well - the hint stays visible
-    // until the user resets the peak (ideally after balancing).
-    const warnLvl = this._matchLevel(this._warnList(), peakMv);
-    const showWarn = showStatus && !!warnLvl && !this._isDismissed(key, peakMv);
 
     // The status badge rates the peak spread (falls back to the current
     // spread until a peak has been recorded).
@@ -750,10 +676,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const badgeLabel = this._spreadLabel(badgeMv);
     const badge = showStatus
       ? '<span class="spread-badge" style="color:' + badgeColor + ';border-color:' + badgeColor + ';">' + badgeMv + ' mV – ' + badgeLabel + '</span>'
-      : '';
-
-    const warnHtml = showWarn
-      ? '<div class="warn-banner" style="border-color:' + warnLvl.color + ';"><span class="warn-icon" style="color:' + warnLvl.color + ';">⚠</span><span class="warn-text" style="color:' + warnLvl.color + ';">' + (warnLvl.text || '') + '</span><button class="warn-dismiss" data-key="' + key + '" title="' + this._t('dismiss') + '">✕</button></div>'
       : '';
 
     const fmt = v => Math.round(v * 1000) + ' mV';
@@ -789,7 +711,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     return '<div class="battery-section">'
       + '<div class="battery-header"><span class="battery-name">' + name + '</span>' + badge + '</div>'
-      + warnHtml + chartHtml + histHtml + statsHtml + peakHtml
+      + chartHtml + histHtml + statsHtml + peakHtml
       + '</div>';
   }
 
@@ -822,11 +744,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.peak-reset{background:none;border:none;cursor:pointer;color:var(--secondary-text-color);font-size:14px;padding:0 2px;line-height:1;flex-shrink:0}'
       + '.peak-reset:hover{color:var(--primary-text-color)}'
       + '.divider{height:1px;background:var(--divider-color);margin:14px 0}'
-      + '.warn-banner{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1.5px solid;background:none;margin-bottom:10px}'
-      + '.warn-icon{font-size:22px;flex-shrink:0}'
-      + '.warn-text{flex:1;font-size:16px;font-weight:600}'
-      + '.warn-dismiss{background:none;border:none;cursor:pointer;padding:0 2px;color:var(--secondary-text-color);font-size:14px;line-height:1}'
-      + '.warn-dismiss:hover{color:var(--primary-text-color)}'
       + '.unavailable{font-size:13px;font-style:italic;color:var(--secondary-text-color)}'
       + '.bcm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}'
       + '.bcm-dialog{background:var(--card-background-color,#1c1c1e);border-radius:14px;padding:20px;max-width:320px;width:80%;box-shadow:0 8px 32px rgba(0,0,0,0.4)}'
@@ -841,9 +758,6 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + sections
       + '</ha-card>';
 
-    this.shadowRoot.querySelectorAll('.warn-dismiss').forEach(btn => {
-      btn.addEventListener('click', () => this._confirmDismiss(btn.dataset.key));
-    });
     this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
       btn.addEventListener('click', () => this._confirmReset(btn.dataset.key));
     });
@@ -876,7 +790,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._hass = null;
     this._editing = false;
     this._pending = false;
-    this._open = { status: false, warn: false, cells: false, hist: false };
+    this._open = { status: false, cells: false, hist: false };
   }
 
   set hass(hass) {
@@ -886,7 +800,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
 
   _t(key) { return bcmT(this._hass, key); }
 
-  // Materialize the level lists in the config so they can be edited.
+  // Materialize the status level list in the config so it can be edited.
   _ensureLevels() {
     if (!Array.isArray(this._config.status_levels)) {
       const th = this._config.warn_thresholds || {};
@@ -894,13 +808,6 @@ class BatteryCellMonitoringEditor extends HTMLElement {
         { threshold: th.watch ?? 20,     color: '#eab308', label: this._t('status_watch') },
         { threshold: th.balance ?? 50,   color: '#f97316', label: this._t('status_balance') },
         { threshold: th.critical ?? 200, color: '#ef4444', label: this._t('status_critical') },
-      ];
-    }
-    if (!Array.isArray(this._config.warn_levels)) {
-      const wl = (this._config.warn_levels && typeof this._config.warn_levels === 'object') ? this._config.warn_levels : {};
-      this._config.warn_levels = [
-        { threshold: wl.balancing ?? 100,  color: '#f97316', text: this._t('warn_balancing') },
-        { threshold: wl.deactivate ?? 350, color: '#ef4444', text: this._t('warn_deactivate') },
       ];
     }
   }
@@ -1132,11 +1039,6 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + this._levelRows(this._config.status_levels, 'status')
       + '<button class="add-btn small" id="add-status">' + this._t('add_entry') + '</button></div>'
       + '</details>'
-      + '<details class="acc" id="acc-warn"' + (this._open.warn ? ' open' : '') + '>'
-      + '<summary>' + this._t('warn_settings') + '</summary>'
-      + '<div class="acc-body">' + this._levelRows(this._config.warn_levels, 'warn')
-      + '<button class="add-btn small" id="add-warn">' + this._t('add_entry') + '</button></div>'
-      + '</details>'
       + '<details class="acc" id="acc-cells"' + (this._open.cells ? ' open' : '') + '>'
       + '<summary>' + this._t('opt_chart') + '</summary>'
       + '<div class="acc-body">'
@@ -1226,8 +1128,8 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     });
     this.shadowRoot.getElementById('add-battery')?.addEventListener('click', () => this._addBattery());
 
-    // Level lists (status + warnings)
-    [['status', this._config.status_levels, 'label'], ['warn', this._config.warn_levels, 'text']].forEach(([listName, list, textKey]) => {
+    // Status level list
+    [['status', this._config.status_levels, 'label']].forEach(([listName, list, textKey]) => {
       list.forEach((entry, i) => {
         const form = this.shadowRoot.getElementById(listName + '-lvl-' + i);
         if (!form) return;
@@ -1325,8 +1227,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
           this._fire(false);
           return;
         }
-        const list = inp.dataset.list === 'status' ? this._config.status_levels : this._config.warn_levels;
-        const entry = list[parseInt(inp.dataset.idx, 10)];
+        const entry = this._config.status_levels[parseInt(inp.dataset.idx, 10)];
         if (!entry) return;
         entry.color = inp.value;
         this._fire(false);
@@ -1336,21 +1237,15 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       this._config.status_levels.push({ threshold: 0, color: '#eab308', label: '' });
       this._fire(true);
     });
-    this.shadowRoot.getElementById('add-warn')?.addEventListener('click', () => {
-      this._config.warn_levels.push({ threshold: 0, color: '#f97316', text: '' });
-      this._fire(true);
-    });
     this.shadowRoot.querySelectorAll('.lvl-del').forEach(btn => {
       btn.addEventListener('click', () => {
-        const list = btn.dataset.list === 'status' ? this._config.status_levels : this._config.warn_levels;
-        list.splice(parseInt(btn.dataset.idx, 10), 1);
+        this._config.status_levels.splice(parseInt(btn.dataset.idx, 10), 1);
         this._fire(true);
       });
     });
     this.shadowRoot.querySelectorAll('details.acc').forEach(d => {
       d.addEventListener('toggle', () => {
         if (d.id === 'acc-status') this._open.status = d.open;
-        if (d.id === 'acc-warn') this._open.warn = d.open;
         if (d.id === 'acc-cells') this._open.cells = d.open;
         if (d.id === 'acc-hist') this._open.hist = d.open;
       });
@@ -1365,6 +1260,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'ha-battery-cell-monitoring',
   name: 'Battery Cell Monitoring',
-  description: 'Per-cell voltages, spread analysis and warnings for home battery storage.',
+  description: 'Per-cell voltages, spread analysis and peak tracking for home battery storage.',
   preview: false,
 });
