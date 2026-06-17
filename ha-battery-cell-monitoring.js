@@ -598,7 +598,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
       maxLinePath = this._linPath(maxPts, 'M');
       minLinePath = this._linPath(minPts, 'M');
     }
+    const axisColor = '#999999';
     const svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="hist-chart" preserveAspectRatio="none">'
+      + '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (H - padB) + '" stroke="' + axisColor + '" stroke-width="1" vector-effect="non-scaling-stroke"/>'
+      + '<line x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '" stroke="' + axisColor + '" stroke-width="1" vector-effect="non-scaling-stroke"/>'
       + '<path d="' + band + '" fill="' + bandHex + '" stroke="none"/>'
       + '<path d="' + maxLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
       + '<path d="' + minLinePath + '" fill="none" stroke="' + edgeColor + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'
@@ -735,13 +738,13 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + ':host{display:block}'
       + 'ha-card{padding:16px 16px 12px}'
       + '.card-title{font-size:var(--ha-card-header-font-size,24px);font-weight:400;line-height:1.2;color:var(--ha-card-header-color,var(--primary-text-color));margin-bottom:14px}'
-      + '.battery-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}'
+      + '.battery-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0}'
       + '.battery-name{font-size:16px;font-weight:500;color:var(--primary-text-color)}'
       + '.spread-badge{font-size:12px;font-weight:700;padding:3px 10px;border:1.5px solid;border-radius:14px;white-space:nowrap}'
-      + '.cell-chart{width:100%;height:64px;display:block;overflow:visible}'
+      + '.cell-chart{width:100%;height:64px;display:block;overflow:visible;margin-top:10px}'
       + '.cell-labels{display:flex;margin-top:3px}'
       + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
-      + '.hist-wrap{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:100px auto;column-gap:6px;margin-top:8px}'
+      + '.hist-wrap{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:100px auto;column-gap:6px;margin-top:15px}'
       + '.hist-yaxis{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}'
       + '.hist-chart{grid-column:2;grid-row:1;width:100%;height:100px;display:block}'
       + '.hist-xaxis{grid-column:2;grid-row:2;display:flex;justify-content:space-between;margin-top:3px}'
