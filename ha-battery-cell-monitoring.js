@@ -375,7 +375,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _data(battery) {
-    const cells = this._cellIds(battery).map(id => this._stateVal(id)).filter(v => v !== null);
+    const ids = this._cellIds(battery);
+    const raw = ids.map(id => this._stateVal(id));
+    const cells = raw.filter(v => v !== null);
     if (!cells.length) return null;
     const cellMin = Math.min(...cells);
     const cellMax = Math.max(...cells);
@@ -383,6 +385,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
     // are configured or they are unavailable.
     return {
       cells,
+      // Only true once every configured cell reports a value - used to keep
+      // partial data (e.g. cells still restoring after a HA restart) from
+      // being recorded as a new peak.
+      complete: cells.length === ids.length,
       spreadMv: this._stateVal(battery.spread) ?? (cellMax - cellMin) * 1000,
       min:      this._stateVal(battery.min)    ?? cellMin,
       max:      this._stateVal(battery.max)    ?? cellMax,
@@ -675,8 +681,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const showPeak   = battery.show_peak   !== false;
 
     // Peak tracking runs independently of the display options so the
-    // badge can always rate the peak, not just the current spread.
-    this._updatePeak(key, spreadMv);
+    // badge can always rate the peak, not just the current spread. Skipped
+    // while cells are still restoring (e.g. right after a HA restart) so a
+    // spurious partial-data spread never overwrites a real peak.
+    if (data.complete) this._updatePeak(key, spreadMv);
     const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
