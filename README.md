@@ -20,7 +20,7 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 ## Installation
 
 1. Add this repo as a HACS custom repository (category *Dashboard*) and install, or copy `ha-battery-cell-monitoring.js` to `config/www/` and register it as a JavaScript module resource
-2. Create an `input_text` helper for the peaks (default name: `input_text.battery_cell_monitoring_peaks`, max length 255, initial `[]`)
+2. Create an `input_text` helper for the peaks (default name: `input_text.battery_cell_monitoring_peaks`, max length 255). Leave the *Initial value* field empty — setting it forces that value on every HA restart instead of restoring the last peak
 3. Add the card: pick "Battery Cell Monitoring" from the card picker — configuration is fully available in the UI
 
 ## Configuration
@@ -182,6 +182,7 @@ Peak helper (Settings → Devices & services → Helpers → Text):
 input_text:
   battery_cell_monitoring_peaks:
     name: Battery cell monitoring peaks
-    initial: "[]"
     max: 255
 ```
+
+Do not set `initial` on this helper — it disables state restore, so the peak would reset to `[]` on every HA restart instead of persisting.
