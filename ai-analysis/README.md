@@ -2,7 +2,7 @@
 
 *(Documentation in German — the feature is an optional add-on to the card and targets German-speaking users; the YAML is commented in German as well.)*
 
-Ein Home-Assistant-Agent, der die Batteriedaten regelmäßig per **Anthropic Messages API** an **Claude Haiku** (`claude-haiku-4-5`) schickt und eine kompakte Analyse zurückliefert zu:
+Ein Home-Assistant-Agent, der auf Knopfdruck die Batteriedaten per **Anthropic Messages API** an **Claude Haiku** (`claude-haiku-4-5`) schickt und eine kompakte Analyse zurückliefert zu:
 
 1. **Batterienutzung** — SOC, aktuelles Lade-/Entladeverhalten
 2. **Einspeisung** — wird eingespeist statt gespeichert?
@@ -10,12 +10,14 @@ Ein Home-Assistant-Agent, der die Batteriedaten regelmäßig per **Anthropic Mes
 4. **Fehler & Zellgesundheit** — Fehler-Entitäten plus LFP-Spread-Bewertung (passend zur Karte)
 5. **Empfehlungen** — max. 3, konkret
 
-Alles läuft nativ in Home Assistant (Package aus `rest_command`, Script, Template-Sensor und Automationen) — **kein Add-on, kein AppDaemon nötig**. Benötigt Home Assistant **2024.10 oder neuer**.
+Alles läuft nativ in Home Assistant (Package aus `rest_command`, Script und Template-Sensor) — **kein Add-on, kein AppDaemon nötig**. Benötigt Home Assistant **2024.10 oder neuer**.
+
+Die Analyse läuft **nur auf Nutzeraufruf** — es gibt keine zeitgesteuerte Ausführung. Gestartet wird sie per Button auf dem Dashboard, über Entwicklerwerkzeuge → Aktionen oder aus einer eigenen Automation heraus, falls doch einmal gewünscht.
 
 ## Funktionsweise
 
 ```
-Automation (täglich 20:30 / bei Fehler)
+Nutzeraufruf (Dashboard-Button / Entwicklerwerkzeuge)
         │
         ▼
 script.battery_ai_analyse          ← sammelt Entitätswerte, baut den Prompt
@@ -72,15 +74,22 @@ Im Script (`script.battery_ai_analyse`) den Block `KONFIGURATION` an die eigene 
 
 Nicht vorhandene Sensoren auf `""` setzen — sie erscheinen dann als „unbekannt" im Prompt, und Claude weist darauf hin, statt zu spekulieren.
 
-In der zweiten Automation (`Batterie KI-Analyse: bei Fehler`) außerdem die Trigger-Entität `binary_sensor.b2500_fault` anpassen oder die Automation entfernen.
-
 ### 4. Neu starten und testen
 
 Nach dem Neustart: **Entwicklerwerkzeuge → Aktionen → `script.battery_ai_analyse`** ausführen. Danach sollte `sensor.batterie_ki_analyse` den Zeitstempel als State und die Analyse im Attribut `analysis` tragen. Schlägt der Aufruf fehl, erscheint eine persistente Benachrichtigung mit HTTP-Status und API-Antwort.
 
-## Anzeige auf dem Dashboard
+## Anzeige und Aufruf auf dem Dashboard
 
-Markdown-Karte unterhalb der Zellspannungs-Karte:
+Button zum Starten der Analyse plus Markdown-Karte für das Ergebnis, z. B. unterhalb der Zellspannungs-Karte:
+
+```yaml
+type: button
+name: KI-Analyse starten
+icon: mdi:robot-outline
+tap_action:
+  action: perform-action
+  perform_action: script.battery_ai_analyse
+```
 
 ```yaml
 type: markdown
@@ -101,15 +110,15 @@ content: >-
 
 ## Kosten
 
-Claude Haiku 4.5 kostet $1 pro Mio. Input-Tokens und $5 pro Mio. Output-Tokens. Eine Analyse liegt typischerweise bei ~1.000 Input- und ~400 Output-Tokens, also **ca. $0,003 pro Lauf** — bei einer täglichen Analyse unter $0,10 pro Monat. Die tatsächlichen Tokens stehen nach jedem Lauf in den Sensor-Attributen `input_tokens` / `output_tokens`.
+Claude Haiku 4.5 kostet $1 pro Mio. Input-Tokens und $5 pro Mio. Output-Tokens. Eine Analyse liegt typischerweise bei ~1.000 Input- und ~400 Output-Tokens, also **ca. $0,003 pro Aufruf**. Die tatsächlichen Tokens stehen nach jedem Lauf in den Sensor-Attributen `input_tokens` / `output_tokens`.
 
 Für tiefere Analysen kann im Script `ai_model` z. B. auf `claude-opus-4-8` umgestellt werden (deutlich leistungsfähiger, höherer Preis pro Token).
 
 ## Anpassen der Analyse
 
-- **Zeitpunkt/Frequenz:** Trigger der Automation `Batterie KI-Analyse: täglich` ändern (Standard 20:30, wenn die Tageswerte weitgehend vollständig sind).
 - **Prompt:** `system_prompt` im Script definiert Abschnitte, Sprache und Länge; `user_prompt` die Datenbasis. Weitere Entitäten lassen sich einfach als zusätzliche Zeilen ergänzen.
 - **Antwortlänge:** `ai_max_tokens` (Standard 2000).
+- **Automatisierung (optional):** Das Package enthält bewusst keine Automation. Wer die Analyse doch automatisch anstoßen will, ruft `script.battery_ai_analyse` aus einer eigenen Automation auf.
 
 ## Alternative: offizielle Anthropic-Integration
 
@@ -121,6 +130,6 @@ Statt des `rest_command` kann auch die [offizielle Anthropic-Integration](https:
 |---------|------------------|
 | Persistente Benachrichtigung mit Status 401 | API-Key falsch oder fehlt in `secrets.yaml` |
 | Status 400 | Payload-Problem — Meldung in der Benachrichtigung lesen (z. B. ungültiges Modell) |
-| Status 429 | Rate-Limit — Frequenz der Automation reduzieren |
+| Status 429 | Rate-Limit — kurz warten und erneut ausführen |
 | Sensor bleibt leer | Event kam nicht an: Script-Trace ansehen (Einstellungen → Automationen & Szenen → Skripte) |
 | Viele Werte „unbekannt" | Entitäts-IDs im `KONFIGURATION`-Block prüfen |

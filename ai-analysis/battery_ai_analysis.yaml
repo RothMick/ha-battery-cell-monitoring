@@ -3,6 +3,8 @@
 # ---------------------------------------------------------------------
 # Home-Assistant-Package: analysiert Batterienutzung, Einspeisung,
 # Input/Output-Gewichtung und Fehler des Heimspeichers per Claude Haiku.
+# Läuft ausschließlich auf Nutzeraufruf (script.battery_ai_analyse),
+# z. B. per Button auf dem Dashboard — keine zeitgesteuerte Ausführung.
 #
 # Installation:
 #   1. Datei nach config/packages/battery_ai_analysis.yaml kopieren
@@ -188,25 +190,3 @@ template:
           model: "{{ trigger.event.data.model }}"
           input_tokens: "{{ trigger.event.data.input_tokens }}"
           output_tokens: "{{ trigger.event.data.output_tokens }}"
-
-automation:
-  - alias: "Batterie KI-Analyse: täglich"
-    id: battery_ai_analysis_daily
-    description: "Tägliche Analyse am Abend, wenn die Tageswerte vollständig sind."
-    triggers:
-      - trigger: time
-        at: "20:30:00"
-    actions:
-      - action: script.battery_ai_analyse
-
-  - alias: "Batterie KI-Analyse: bei Fehler"
-    id: battery_ai_analysis_on_error
-    description: "Zusätzliche Analyse, wenn die Batterie einen Fehler meldet. Entity anpassen!"
-    mode: single
-    triggers:
-      - trigger: state
-        entity_id: binary_sensor.b2500_fault   # <- an eigene Fehler-Entität anpassen
-        to: "on"
-        for: "00:02:00"
-    actions:
-      - action: script.battery_ai_analyse

@@ -84,7 +84,7 @@ All four are optional. The card works fully without them; they are only relevant
 
 ## AI battery analysis (optional)
 
-An optional Home Assistant package that periodically sends a snapshot of the battery data (usage, grid feed-in, input/output weighting, cell health, errors) to **Claude Haiku** via the Anthropic Messages API and stores a compact analysis in a sensor for display on the dashboard. Runs natively in Home Assistant (rest_command + script + template sensor) — no add-on required.
+An optional Home Assistant package that sends a snapshot of the battery data (usage, grid feed-in, input/output weighting, cell health, errors) to **Claude Haiku** via the Anthropic Messages API and stores a compact analysis in a sensor for display on the dashboard. Runs on demand only (dashboard button / script call, no schedule) and natively in Home Assistant (rest_command + script + template sensor) — no add-on required.
 
 See [ai-analysis/README.md](ai-analysis/README.md) (German) for setup instructions.
 
