@@ -1,0 +1,212 @@
+# =====================================================================
+# Batterie-KI-Analyse mit Claude Haiku (Anthropic Messages API)
+# ---------------------------------------------------------------------
+# Home-Assistant-Package: analysiert Batterienutzung, Einspeisung,
+# Input/Output-Gewichtung und Fehler des Heimspeichers per Claude Haiku.
+#
+# Installation:
+#   1. Datei nach config/packages/battery_ai_analysis.yaml kopieren
+#      (Packages aktivieren: homeassistant: packages: !include_dir_named packages)
+#   2. API-Key in secrets.yaml hinterlegen:
+#        anthropic_api_key: "sk-ant-..."
+#   3. Im Script unten den KONFIGURATION-Block an die eigenen
+#      Entitäten anpassen (HM2MQTT-Namen weichen je Gerät ab)
+#   4. Home Assistant neu starten, dann testen:
+#      Entwicklerwerkzeuge -> Aktionen -> script.battery_ai_analyse
+#
+# Benötigt Home Assistant 2024.10 oder neuer.
+# Ausführliche Anleitung: ai-analysis/README.md
+# =====================================================================
+
+rest_command:
+  battery_ai_analysis:
+    url: "https://api.anthropic.com/v1/messages"
+    method: post
+    timeout: 120
+    content_type: "application/json"
+    headers:
+      x-api-key: !secret anthropic_api_key
+      anthropic-version: "2023-06-01"
+    payload: >-
+      {{ {
+        "model": model | default("claude-haiku-4-5"),
+        "max_tokens": max_tokens | default(2000) | int,
+        "system": system_prompt | default("Du bist ein Analyst für Heim-Batteriespeicher."),
+        "messages": [{"role": "user", "content": user_prompt}]
+      } | tojson }}
+
+script:
+  battery_ai_analyse:
+    alias: "Batterie KI-Analyse (Claude Haiku)"
+    description: >-
+      Sammelt einen Schnappschuss der Batteriedaten (Nutzung, Einspeisung,
+      Input/Output, Zellgesundheit, Fehler) und lässt ihn von Claude Haiku
+      analysieren. Ergebnis landet in sensor.batterie_ki_analyse.
+    icon: mdi:robot-outline
+    mode: single
+    sequence:
+      - variables:
+          # ================= KONFIGURATION =================
+          # Entitäten an die eigene Installation anpassen.
+          # Nicht vorhandene Sensoren einfach auf "" setzen —
+          # sie erscheinen dann als "unbekannt" in der Analyse.
+
+          # Momentanwerte
+          soc_entity: sensor.b2500_soc                          # Ladezustand %
+          input_power_entity: sensor.b2500_input_power          # Ladeleistung W (PV -> Akku)
+          output_power_entity: sensor.b2500_output_power        # Entladeleistung W (Akku -> Haus)
+          feed_in_power_entity: sensor.grid_export_power        # Netzeinspeisung W
+
+          # Tageswerte (z. B. Riemann-Summe / Utility Meter)
+          energy_in_today_entity: sensor.b2500_energy_in_daily      # geladen kWh
+          energy_out_today_entity: sensor.b2500_energy_out_daily    # entladen kWh
+          feed_in_today_entity: sensor.grid_export_energy_daily     # eingespeist kWh
+
+          # Zellgesundheit (Template-Sensoren, siehe Haupt-README)
+          cell_min_entity: sensor.b2500_1234_cell_voltage_min
+          cell_max_entity: sensor.b2500_1234_cell_voltage_max
+          cell_mean_entity: sensor.b2500_1234_cell_voltage_mean
+          cell_spread_entity: sensor.b2500_1234_cell_voltage_spread
+          peak_helper_entity: input_text.battery_cell_monitoring_peaks
+
+          # Fehler-/Status-Entitäten (Liste beliebig erweitern)
+          error_entities:
+            - binary_sensor.b2500_fault
+
+          # Modell & Antwortlänge
+          ai_model: claude-haiku-4-5
+          ai_max_tokens: 2000
+          # =================================================
+
+      - variables:
+          io_ratio: >-
+            {%- set e_in = states(energy_in_today_entity) | float(-1) -%}
+            {%- set e_out = states(energy_out_today_entity) | float(-1) -%}
+            {%- if e_in > 0 and e_out >= 0 -%}
+              {{ (e_out / e_in * 100) | round(1) }} % (entladen/geladen)
+            {%- else -%}
+              unbekannt
+            {%- endif -%}
+          system_prompt: >-
+            Du bist ein Analyst für Heim-Batteriespeicher (LFP-Zellen, z. B.
+            Marstek B2500). Du erhältst einen Datenschnappschuss aus Home
+            Assistant. Antworte auf Deutsch, kompakt (max. ca. 250 Wörter),
+            als Markdown ohne Tabellen, mit genau diesen Abschnitten:
+            **1. Batterienutzung** (SOC, aktuelles Lade-/Entladeverhalten),
+            **2. Einspeisung** (Verhältnis Einspeisung zu Speichernutzung —
+            wird eingespeist statt gespeichert?),
+            **3. Input/Output-Gewichtung** (geladene vs. entladene Energie,
+            grobe Wirkungsgrad-Einschätzung),
+            **4. Fehler & Zellgesundheit** (LFP-Spread: <20 mV gut,
+            20–50 mV beobachten, 50–200 mV Balancing nötig, >200 mV kritisch),
+            **5. Empfehlungen** (max. 3, konkret und umsetzbar).
+            Werte mit "unbekannt" kurz benennen statt zu spekulieren.
+          user_prompt: |-
+            {%- macro w(e) -%}
+              {%- if e and states(e) not in ['unknown', 'unavailable', 'none', ''] -%}
+                {{ states(e) }} {{ state_attr(e, 'unit_of_measurement') or '' }}
+              {%- else -%}
+                unbekannt
+              {%- endif -%}
+            {%- endmacro -%}
+            Datenschnappschuss vom {{ now().strftime('%d.%m.%Y %H:%M') }}:
+
+            ## Momentanwerte
+            - Ladezustand (SOC): {{ w(soc_entity) }}
+            - Ladeleistung (Input): {{ w(input_power_entity) }}
+            - Entladeleistung (Output): {{ w(output_power_entity) }}
+            - Netzeinspeisung aktuell: {{ w(feed_in_power_entity) }}
+
+            ## Tageswerte
+            - Energie geladen (Input): {{ w(energy_in_today_entity) }}
+            - Energie entladen (Output): {{ w(energy_out_today_entity) }}
+            - Netzeinspeisung heute: {{ w(feed_in_today_entity) }}
+            - Output/Input-Verhältnis heute: {{ io_ratio }}
+
+            ## Zellgesundheit
+            - Zellspannung min / mittel / max: {{ w(cell_min_entity) }} / {{ w(cell_mean_entity) }} / {{ w(cell_max_entity) }}
+            - Aktueller Spread: {{ w(cell_spread_entity) }}
+            - Peak-Spread-Historie (JSON, s = Spread in mV, t = Zeitstempel):
+              {{ states(peak_helper_entity) if peak_helper_entity and states(peak_helper_entity) not in ['unknown', 'unavailable'] else 'unbekannt' }}
+
+            ## Fehler / Störungen
+            {%- for e in error_entities %}
+            - {{ e }}: {{ states(e) }}
+            {%- else %}
+            - keine Fehler-Entitäten konfiguriert
+            {%- endfor %}
+
+      - action: rest_command.battery_ai_analysis
+        continue_on_error: true
+        data:
+          model: "{{ ai_model }}"
+          max_tokens: "{{ ai_max_tokens }}"
+          system_prompt: "{{ system_prompt }}"
+          user_prompt: "{{ user_prompt }}"
+        response_variable: ai_response
+
+      - if:
+          - condition: template
+            value_template: >-
+              {{ ai_response is defined
+                 and ai_response.status == 200
+                 and (ai_response.content.content
+                      | selectattr('type', 'eq', 'text')
+                      | list | count) > 0 }}
+        then:
+          - event: battery_ai_analysis_done
+            event_data:
+              analysis: >-
+                {{ ai_response.content.content
+                   | selectattr('type', 'eq', 'text')
+                   | map(attribute='text')
+                   | join('\n') }}
+              model: "{{ ai_response.content.model }}"
+              input_tokens: "{{ ai_response.content.usage.input_tokens }}"
+              output_tokens: "{{ ai_response.content.usage.output_tokens }}"
+              finished_at: "{{ now().isoformat() }}"
+        else:
+          - action: persistent_notification.create
+            data:
+              notification_id: battery_ai_analysis_error
+              title: "Batterie KI-Analyse fehlgeschlagen"
+              message: >-
+                HTTP-Status: {{ ai_response.status if ai_response is defined else 'keine Antwort (Verbindungsfehler?)' }}
+                {{ '\n' }}Antwort: {{ (ai_response.content | tojson)[:800] if ai_response is defined and ai_response.content is defined else '-' }}
+
+template:
+  - triggers:
+      - trigger: event
+        event_type: battery_ai_analysis_done
+    sensor:
+      - name: "Batterie KI-Analyse"
+        unique_id: battery_ai_analysis
+        device_class: timestamp
+        state: "{{ trigger.event.data.finished_at }}"
+        attributes:
+          analysis: "{{ trigger.event.data.analysis }}"
+          model: "{{ trigger.event.data.model }}"
+          input_tokens: "{{ trigger.event.data.input_tokens }}"
+          output_tokens: "{{ trigger.event.data.output_tokens }}"
+
+automation:
+  - alias: "Batterie KI-Analyse: täglich"
+    id: battery_ai_analysis_daily
+    description: "Tägliche Analyse am Abend, wenn die Tageswerte vollständig sind."
+    triggers:
+      - trigger: time
+        at: "20:30:00"
+    actions:
+      - action: script.battery_ai_analyse
+
+  - alias: "Batterie KI-Analyse: bei Fehler"
+    id: battery_ai_analysis_on_error
+    description: "Zusätzliche Analyse, wenn die Batterie einen Fehler meldet. Entity anpassen!"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.b2500_fault   # <- an eigene Fehler-Entität anpassen
+        to: "on"
+        for: "00:02:00"
+    actions:
+      - action: script.battery_ai_analyse
