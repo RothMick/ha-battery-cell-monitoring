@@ -10,10 +10,10 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 
 - **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
 - **Status badge** — rates the **peak** spread with freely configurable levels (threshold, color, label); below the lowest threshold a non-deletable "Default" level applies (color configurable)
-- **Stats row** — current min / mean / max / spread; values backed by a configured entity open the entity's detail dialog on click
+- **Stats row** — current min / mean / max / spread; values backed by a configured entity open the entity's detail dialog on click/tap (works on desktop and iOS)
 - **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
 - **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
-- **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
+- **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for optional entities, status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
 - **Localized** — English and German, follows the HA UI language
 - Works without template sensors — min/max/mean/spread are computed from the cell values when needed
 
@@ -78,7 +78,7 @@ Configurable in the UI editor under **Optional entities** (own collapsible secti
 | `mean` | Entity for the mean cell voltage |
 | `spread` | Entity for the cell voltage spread |
 
-When set, an entity is used consistently everywhere instead of the value computed from the cells: in the stats row, for the status badge and peak tracking (`spread`), and in the history chart (when `min` / `max` / `mean` are all three set, only these 3 entity histories are fetched instead of all individual cell entities). Stats-row values backed by an entity open the entity's detail dialog on click.
+When set, an entity is used consistently everywhere instead of the value computed from the cells: in the stats row, for the status badge and peak tracking (`spread`), and in the history chart (when `min` / `max` / `mean` are all three set, only these 3 entity histories are fetched instead of all individual cell entities). Stats-row values backed by an entity open the entity's detail dialog on click/tap.
 
 All four are optional. The card works fully without them — the values are then computed from the cell entities.
 
