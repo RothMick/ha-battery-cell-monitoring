@@ -10,7 +10,7 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 
 - **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
 - **Status badge** — rates the **peak** spread with freely configurable levels (threshold, color, label); below the lowest threshold a non-deletable "Default" level applies (color configurable)
-- **Stats row** — current min / mean / max / spread
+- **Stats row** — current min / mean / max / spread; values backed by a configured entity open the entity's detail dialog on click
 - **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
 - **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
 - **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
@@ -67,20 +67,20 @@ batteries:
 | `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Display options |
 | `show_history` | bool | false | History chart (min/max band + mean line) |
 
-#### Optional helper template sensors
+#### Optional entities
 
-Configurable in the UI editor under **History chart → Template sensors (optional)**:
+Configurable in the UI editor under **Optional entities** (own collapsible section, per battery):
 
 | Option | Description |
 |--------|-------------|
-| `min` | Template sensor for the minimum cell voltage |
-| `max` | Template sensor for the maximum cell voltage |
-| `mean` | Template sensor for the mean cell voltage |
-| `spread` | Template sensor for the cell voltage spread |
+| `min` | Entity for the minimum cell voltage |
+| `max` | Entity for the maximum cell voltage |
+| `mean` | Entity for the mean cell voltage |
+| `spread` | Entity for the cell voltage spread |
 
-When `min` / `max` / `mean` are set, the history chart fetches only these 3 entity histories instead of all individual cell entities — functionally identical, fewer network requests. The `spread` sensor improves the momentary spread value in the stats row (falls back to `max − min` computed from cells).
+When set, an entity is used consistently everywhere instead of the value computed from the cells: in the stats row, for the status badge and peak tracking (`spread`), and in the history chart (when `min` / `max` / `mean` are all three set, only these 3 entity histories are fetched instead of all individual cell entities). Stats-row values backed by an entity open the entity's detail dialog on click.
 
-All four are optional. The card works fully without them; they are only relevant when `show_history: true` is used.
+All four are optional. The card works fully without them — the values are then computed from the cell entities.
 
 ## Spread assessment (LFP)
 
@@ -109,7 +109,7 @@ batteries:
     cell_count: 14
     digits: 2
     show_history: true
-    # optional template sensors (fallback: computed from the cells)
+    # optional entities (fallback: computed from the cells)
     min: sensor.b2500_1234_cell_voltage_min
     max: sensor.b2500_1234_cell_voltage_max
     mean: sensor.b2500_1234_cell_voltage_mean

@@ -65,7 +65,8 @@ const BCM_TRANSLATIONS = {
     hist_line:        'Mean line',
     hist_edge:        'Min/max lines',
     hist_smooth:      'Smoothed curve',
-    hist_sensors:     'Template sensors (optional)',
+    opt_entities:     'Optional entities',
+    entities_hint:    'When set, these entities are used instead of values computed from the cells (stats row, status badge, peak tracking, history chart). Stats values backed by an entity open its detail dialog on click.',
     sensor_min:       'Min sensor',
     sensor_max:       'Max sensor',
     sensor_mean:      'Mean sensor',
@@ -117,7 +118,8 @@ const BCM_TRANSLATIONS = {
     hist_line:        'Mittelwert-Linie',
     hist_edge:        'Min-/Max-Linien',
     hist_smooth:      'Geglättete Kurve',
-    hist_sensors:     'Template-Sensoren (optional)',
+    opt_entities:     'Optionale Entitäten',
+    entities_hint:    'Wenn gesetzt, werden diese Entitäten statt der aus den Zellen berechneten Werte verwendet (Werte-Zeile, Status-Badge, Peak, Verlaufskurve). Werte mit Entität öffnen beim Klick den Detaildialog.',
     sensor_min:       'Min-Sensor',
     sensor_max:       'Max-Sensor',
     sensor_mean:      'Mean-Sensor',
@@ -381,7 +383,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (!cells.length) return null;
     const cellMin = Math.min(...cells);
     const cellMax = Math.max(...cells);
-    // Fall back to values computed from the cells when no template sensors
+    const spreadEnt = this._stateVal(battery.spread);
+    // Fall back to values computed from the cells when no optional entities
     // are configured or they are unavailable.
     return {
       cells,
@@ -389,7 +392,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
       // partial data (e.g. cells still restoring after a HA restart) from
       // being recorded as a new peak.
       complete: cells.length === ids.length,
-      spreadMv: this._stateVal(battery.spread) ?? (cellMax - cellMin) * 1000,
+      // An entity-provided spread is trustworthy even while cells are partial.
+      spreadIsEntity: spreadEnt !== null,
+      spreadMv: spreadEnt ?? (cellMax - cellMin) * 1000,
       min:      this._stateVal(battery.min)    ?? cellMin,
       max:      this._stateVal(battery.max)    ?? cellMax,
       mean:     this._stateVal(battery.mean)   ?? cells.reduce((a, b) => a + b, 0) / cells.length,
@@ -683,8 +688,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
     // Peak tracking runs independently of the display options so the
     // badge can always rate the peak, not just the current spread. Skipped
     // while cells are still restoring (e.g. right after a HA restart) so a
-    // spurious partial-data spread never overwrites a real peak.
-    if (data.complete) this._updatePeak(key, spreadMv);
+    // spurious partial-data spread never overwrites a real peak - unless the
+    // spread comes from an entity, which does not depend on the cells.
+    if (data.spreadIsEntity || data.complete) this._updatePeak(key, spreadMv);
     const peak = this._getPeak(key);
 
     const color = this._spreadColor(spreadMv);
@@ -708,12 +714,18 @@ class BatteryCellMonitoringCard extends HTMLElement {
     }
     const histHtml = showHistory ? this._renderHistory(battery) : '';
 
+    // Stats backed by a configured entity open the entity's more-info dialog.
+    const stat = (lbl, valHtml, entityId) => {
+      const clickable = entityId && this._hass.states[entityId];
+      return '<div class="stat"' + (clickable ? ' data-entity="' + entityId + '"' : '') + '>'
+        + '<span class="stat-lbl">' + lbl + '</span>' + valHtml + '</div>';
+    };
     const statsHtml = showStats
       ? '<div class="stats-row">'
-        + '<div class="stat"><span class="stat-lbl">' + this._t('min') + '</span><span class="stat-val">' + fmt(min) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">' + this._t('mean') + '</span><span class="stat-val">' + fmt(mean) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">' + this._t('max') + '</span><span class="stat-val">' + fmt(max) + '</span></div>'
-        + '<div class="stat"><span class="stat-lbl">' + this._t('spread') + '</span><span class="stat-val" style="color:' + color + ';">' + Math.round(spreadMv) + ' mV</span></div>'
+        + stat(this._t('min'), '<span class="stat-val">' + fmt(min) + '</span>', battery.min)
+        + stat(this._t('mean'), '<span class="stat-val">' + fmt(mean) + '</span>', battery.mean)
+        + stat(this._t('max'), '<span class="stat-val">' + fmt(max) + '</span>', battery.max)
+        + stat(this._t('spread'), '<span class="stat-val" style="color:' + color + ';">' + Math.round(spreadMv) + ' mV</span>', battery.spread)
         + '</div>'
       : '';
 
@@ -761,6 +773,8 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
       + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
       + '.stat-val{font-size:14px;font-weight:500;color:var(--primary-text-color);margin-top:2px}'
+      + '.stat[data-entity]{cursor:pointer}'
+      + '.stat[data-entity]:hover{filter:brightness(1.15)}'
       + '.peak-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--secondary-background-color);border-radius:8px}'
       + '.peak-label{font-size:14px;color:var(--secondary-text-color);flex-shrink:0}'
       + '.peak-val{font-size:14px;font-weight:700;flex-shrink:0}'
@@ -785,6 +799,15 @@ class BatteryCellMonitoringCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
       btn.addEventListener('click', () => this._confirmReset(btn.dataset.key));
     });
+    this.shadowRoot.querySelectorAll('.stat[data-entity]').forEach(el => {
+      el.addEventListener('click', () => this._moreInfo(el.dataset.entity));
+    });
+  }
+
+  _moreInfo(entityId) {
+    const ev = new Event('hass-more-info', { bubbles: true, composed: true });
+    ev.detail = { entityId };
+    this.dispatchEvent(ev);
   }
 
   getCardSize() { return (this._config?.batteries?.length ?? 1) * 3; }
@@ -814,7 +837,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this._hass = null;
     this._editing = false;
     this._pending = false;
-    this._open = { status: false, cells: false, hist: false };
+    this._open = { status: false, cells: false, hist: false, entities: false };
   }
 
   set hass(hass) {
@@ -1046,13 +1069,23 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '.lvl-row ha-form{flex:1}'
       + '.base-label{flex:1;font-size:14px;font-weight:500;color:var(--primary-text-color)}'
       + '.lvl-color{width:34px;height:34px;flex-shrink:0;border:1px solid var(--divider-color);border-radius:8px;padding:2px;background:none;cursor:pointer}'
-      + '.hist-sensors-hdr{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding-top:12px;border-top:1px solid var(--divider-color)}'
-      + '.hist-sensors-name{font-size:13px;font-weight:500;color:var(--primary-text-color);margin-top:6px;margin-bottom:2px}'
+      + '.acc-hint{font-size:12px;color:var(--secondary-text-color);line-height:1.45}'
+      + '.sensors-name{font-size:13px;font-weight:500;color:var(--primary-text-color);margin-top:6px;margin-bottom:2px}'
       + '</style>'
       + '<div class="editor">'
       + '<ha-form id="title-form"></ha-form>'
       + batteryBlocks
       + '<button class="add-btn" id="add-battery">' + this._t('add_battery') + '</button>'
+      + '<details class="acc" id="acc-entities"' + (this._open.entities ? ' open' : '') + '>'
+      + '<summary>' + this._t('opt_entities') + '</summary>'
+      + '<div class="acc-body">'
+      + '<div class="acc-hint">' + this._t('entities_hint') + '</div>'
+      + batteries.map((b, i) =>
+        '<div class="sensors-name">' + (b.name || (this._t('battery') + ' ' + (i + 1))) + '</div>'
+        + '<ha-form id="entity-sensors-' + i + '"></ha-form>'
+      ).join('')
+      + '</div>'
+      + '</details>'
       + '<details class="acc" id="acc-status"' + (this._open.status ? ' open' : '') + '>'
       + '<summary>' + this._t('status_settings') + '</summary>'
       + '<div class="acc-body">'
@@ -1086,12 +1119,6 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<input type="color" class="lvl-color" data-list="histedge" value="' + (/^#[0-9a-fA-F]{6}$/.test(this._config.history_edge_color || '') ? this._config.history_edge_color : '#ff0000') + '" title="' + this._t('col_color') + '"></div>'
       + '<div class="opt-row"><ha-switch id="hist-smooth"' + (this._config.history_smooth === true ? ' checked' : '') + '></ha-switch>'
       + '<span class="opt-label">' + this._t('hist_smooth') + '</span></div>'
-      + (batteries.length ? '<div class="hist-sensors-hdr">' + this._t('hist_sensors') + '</div>'
-        + batteries.map((b, i) =>
-          '<div class="hist-sensors-name">' + (b.name || (this._t('battery') + ' ' + (i + 1))) + '</div>'
-          + '<ha-form id="hist-sensors-' + i + '"></ha-form>'
-        ).join('')
-        : '')
       + '</div>'
       + '</details>'
       + '</div>';
@@ -1190,7 +1217,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       this._wireBuffered(histForm);
     }
     batteries.forEach((b, i) => {
-      const sForm = this.shadowRoot.getElementById('hist-sensors-' + i);
+      const sForm = this.shadowRoot.getElementById('entity-sensors-' + i);
       if (!sForm) return;
       sForm.hass = this._hass;
       sForm.schema = [
@@ -1269,6 +1296,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll('details.acc').forEach(d => {
       d.addEventListener('toggle', () => {
+        if (d.id === 'acc-entities') this._open.entities = d.open;
         if (d.id === 'acc-status') this._open.status = d.open;
         if (d.id === 'acc-cells') this._open.cells = d.open;
         if (d.id === 'acc-hist') this._open.hist = d.open;
