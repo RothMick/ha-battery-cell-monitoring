@@ -715,10 +715,14 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const histHtml = showHistory ? this._renderHistory(battery) : '';
 
     // Stats backed by a configured entity open the entity's more-info dialog.
+    // Rendered as real <button>s - iOS Safari does not reliably deliver
+    // click events to plain divs.
     const stat = (lbl, valHtml, entityId) => {
       const clickable = entityId && this._hass.states[entityId];
-      return '<div class="stat"' + (clickable ? ' data-entity="' + entityId + '"' : '') + '>'
-        + '<span class="stat-lbl">' + lbl + '</span>' + valHtml + '</div>';
+      const inner = '<span class="stat-lbl">' + lbl + '</span>' + valHtml;
+      return clickable
+        ? '<button type="button" class="stat" data-entity="' + entityId + '">' + inner + '</button>'
+        : '<div class="stat">' + inner + '</div>';
     };
     const statsHtml = showStats
       ? '<div class="stats-row">'
@@ -773,7 +777,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
       + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
       + '.stat-val{font-size:14px;font-weight:500;color:var(--primary-text-color);margin-top:2px}'
-      + '.stat[data-entity]{cursor:pointer}'
+      + 'button.stat{border:none;margin:0;font:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0)}'
       + '.stat[data-entity]:hover{filter:brightness(1.15)}'
       + '.peak-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--secondary-background-color);border-radius:8px}'
       + '.peak-label{font-size:14px;color:var(--secondary-text-color);flex-shrink:0}'
