@@ -11,7 +11,7 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 - **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
 - **Status badge** — rates the **peak** spread with freely configurable levels (threshold, color, label); below the lowest threshold a non-deletable "Default" level applies (color configurable)
 - **Stats row** — current min / mean / max / spread; values backed by a configured entity open the entity's detail dialog on click/tap (works on desktop and iOS)
-- **Peak spread tracking** — highest observed spread with timestamp and reset button (with confirmation dialog). The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
+- **Peak spread tracking** — highest spread since the last reset, with timestamp and reset button (with confirmation dialog). With a `spread` entity configured, the peak is derived from the recorder's hourly max statistics, so peaks that occurred while no dashboard was open still count; without one, only values observed while the card is on screen are tracked. The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
 - **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
 - **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for optional entities, status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
 - **Localized** — English and German, follows the HA UI language
@@ -42,7 +42,7 @@ batteries:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string | – | Card heading |
-| `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | Helper storing peaks as a JSON array ordered by display position: `[{"i":<id>,"s":<mV>,"t":<timestamp>}, ...]` |
+| `peak_helper` | entity | `input_text.battery_cell_monitoring_peaks` | Helper storing peaks as a JSON array ordered by display position: `[{"i":<id>,"s":<mV>,"t":<epoch minutes>,"r":<reset epoch minutes>}, ...]` |
 | `status_levels` | list | 20/50/200 mV | Status levels `{threshold, color, label}`; highest match wins |
 | `status_base_color` | color | `#22c55e` | Color of the "Default" status below the lowest threshold |
 | `cell_color` | color | `#3b82f6` | Bar color of normal cells |
@@ -80,6 +80,8 @@ Configurable in the UI editor under **Optional entities** (own collapsible secti
 
 When set, an entity is used consistently everywhere instead of the value computed from the cells: in the stats row, for the status badge and peak tracking (`spread`), and in the history chart (when `min` / `max` / `mean` are all three set, only these 3 entity histories are fetched instead of all individual cell entities). Stats-row values backed by an entity open the entity's detail dialog on click/tap.
 
+A configured `spread` entity additionally makes the peak a *real* maximum: on load (and every 30 min) the card queries the recorder's hourly `max` statistics since the last reset — or over the last 30 days when the peak was never reset — so spikes that happened while no dashboard was open are picked up too. The entity needs `state_class: measurement` for those statistics to exist. Backfilled timestamps are the start of the hour the peak fell into; peaks seen live are minute-exact. Without a `spread` entity the card can only track what it observes while on screen (no long-term series of the computed spread exists to look back at).
+
 All four are optional. The card works fully without them — the values are then computed from the cell entities.
 
 ## Spread assessment (LFP)
@@ -91,7 +93,7 @@ All four are optional. The card works fully without them — the values are then
 | 50–200 mV | Balancing needed |
 | > 200 mV | Critical (possible cell defect) |
 
-LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why the status badge rates the tracked peak instead of the momentary spread.
+LFP cells reveal problems almost exclusively at the SOC extremes (>90% / <10%). That is why the status badge rates the tracked peak instead of the momentary spread — and why a `spread` entity is worth configuring: those extremes are usually reached with nobody looking at the dashboard, so without the recorder backfill the telling spike is simply never seen.
 
 ## Full example
 

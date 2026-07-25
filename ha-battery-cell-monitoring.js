@@ -66,7 +66,7 @@ const BCM_TRANSLATIONS = {
     hist_edge:        'Min/max lines',
     hist_smooth:      'Smoothed curve',
     opt_entities:     'Optional entities',
-    entities_hint:    'When set, these entities are used instead of values computed from the cells (stats row, status badge, peak tracking, history chart). Stats values backed by an entity open its detail dialog on click.',
+    entities_hint:    'When set, these entities are used instead of values computed from the cells (stats row, status badge, peak tracking, history chart). Stats values backed by an entity open its detail dialog on click. With a spread entity the peak is derived from its recorded history, so peaks that happened while no dashboard was open still count.',
     sensor_min:       'Min sensor',
     sensor_max:       'Max sensor',
     sensor_mean:      'Mean sensor',
@@ -119,7 +119,7 @@ const BCM_TRANSLATIONS = {
     hist_edge:        'Min-/Max-Linien',
     hist_smooth:      'Geglättete Kurve',
     opt_entities:     'Optionale Entitäten',
-    entities_hint:    'Wenn gesetzt, werden diese Entitäten statt der aus den Zellen berechneten Werte verwendet (Werte-Zeile, Status-Badge, Peak, Verlaufskurve). Werte mit Entität öffnen beim Klick den Detaildialog.',
+    entities_hint:    'Wenn gesetzt, werden diese Entitäten statt der aus den Zellen berechneten Werte verwendet (Werte-Zeile, Status-Badge, Peak, Verlaufskurve). Werte mit Entität öffnen beim Klick den Detaildialog. Mit Spread-Entität wird der Peak aus deren aufgezeichneter Historie ermittelt — Spitzen ohne geöffnetes Dashboard zählen also mit.',
     sensor_min:       'Min-Sensor',
     sensor_max:       'Max-Sensor',
     sensor_mean:      'Mean-Sensor',
@@ -139,6 +139,9 @@ function bcmLang(hass) {
 function bcmT(hass, key) {
   return BCM_TRANSLATIONS[bcmLang(hass)][key] ?? BCM_TRANSLATIONS.en[key] ?? key;
 }
+
+// How far the peak backfill looks back when the peak was never reset.
+const BCM_PEAK_LOOKBACK_DAYS = 30;
 
 // Prepend "sensor." when the stem has no domain part.
 function bcmNormalizePrefix(prefix) {
@@ -171,16 +174,24 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const old = this._hass;
     this._hass = hass;
     if (!old || this._entitiesChanged(old, hass)) this._render();
-    if (!old) this._refreshHistories();
+    if (!old) {
+      this._refreshHistories();
+      this._backfillPeaks();
+    }
   }
 
   connectedCallback() {
     this._histTimer = setInterval(() => this._refreshHistories(), 60000);
     this._refreshHistories();
+    // Statistics only grow hourly, and live tracking covers the card being
+    // open - so the backfill mainly matters at load time.
+    this._peakTimer = setInterval(() => this._backfillPeaks(), 1800000);
+    this._backfillPeaks();
   }
 
   disconnectedCallback() {
     clearInterval(this._histTimer);
+    clearInterval(this._peakTimer);
   }
 
   _t(key) { return bcmT(this._hass, key); }
@@ -272,9 +283,16 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   // Writes the peaks as a compact array ordered by display position:
-  // [{"i":<battery key>,"s":<spread mV>,"t":<timestamp>}, ...]
+  // [{"i":<battery key>,"s":<spread mV>,"t":<epoch minutes>,"r":<reset epoch minutes>}, ...]
+  // Empty fields are omitted - the input_text helper caps at 255 characters.
   _writePeaks(byKey) {
-    const mk = (k, e) => ({ i: k, s: e.s, t: e.t });
+    const mk = (k, e) => {
+      const o = { i: k };
+      if (e.s != null) o.s = e.s;
+      if (e.t != null) o.t = e.t;
+      if (e.r != null) o.r = e.r;
+      return o;
+    };
     const arr = [];
     const seen = new Set();
     // Own batteries first, in display order.
@@ -297,41 +315,111 @@ class BatteryCellMonitoringCard extends HTMLElement {
     });
   }
 
-  _nowTs() {
-    const now = new Date();
+  _nowMin() { return Math.floor(Date.now() / 60000); }
+
+  // Peak timestamps are stored as epoch minutes; entries written by older
+  // versions hold a preformatted string, which is displayed unchanged.
+  _fmtStamp(t) {
+    if (t == null) return '';
+    if (typeof t === 'string') return t;
+    const d = new Date(t * 60000);
     const locale = bcmLang(this._hass) === 'de' ? 'de-DE' : 'en-GB';
-    return now.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
-         + ' ' + now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
+         + ' ' + d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 
+  // Returns {spread, t, r} or null. spread === null marks an entry that only
+  // carries the reset timestamp.
   _getPeak(key) {
     const peaks = this._readPeaks();
+    let e = null;
     if (peaks === null) {
-      try {
-        const d = JSON.parse(localStorage.getItem(this._peakKey(key)));
-        return d || null;
-      } catch { return null; }
+      try { e = JSON.parse(localStorage.getItem(this._peakKey(key))); } catch { e = null; }
+    } else {
+      e = peaks.find(p => p.i === key) || null;
     }
-    const e = peaks.find(p => p.i === key);
-    return e ? { spread: e.s, ts: e.t } : null;
+    if (!e) return null;
+    // `spread`/`ts` are the legacy localStorage field names.
+    return { spread: e.s ?? e.spread ?? null, t: e.t ?? e.ts ?? null, r: e.r ?? null };
+  }
+
+  // Merges a patch into the battery's entry. Passing null clears a field.
+  _savePeak(key, patch) {
+    const peaks = this._readPeaks();
+    const pick = (k, cur) => (patch[k] !== undefined ? patch[k] : cur);
+    if (peaks === null) {
+      const cur = this._getPeak(key) || {};
+      localStorage.setItem(this._peakKey(key), JSON.stringify({
+        s: pick('s', cur.spread ?? null),
+        t: pick('t', cur.t ?? null),
+        r: pick('r', cur.r ?? null),
+      }));
+      // Deferred: _updatePeak runs from inside _render(), and localStorage
+      // has no state change to re-render off.
+      setTimeout(() => this._render(), 0);
+      return;
+    }
+    const byKey = {};
+    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, r: p.r }; });
+    const cur = byKey[key] || {};
+    byKey[key] = { s: pick('s', cur.s), t: pick('t', cur.t), r: pick('r', cur.r) };
+    this._writePeaks(byKey);
   }
 
   _updatePeak(key, spreadMv) {
     const rounded = Math.round(spreadMv);
-    const peaks = this._readPeaks();
-    if (peaks === null) {
-      const current = this._getPeak(key);
-      if (!current || rounded > current.spread) {
-        localStorage.setItem(this._peakKey(key), JSON.stringify({ spread: rounded, ts: this._nowTs() }));
+    const cur = this._getPeak(key);
+    if (cur && cur.spread != null && rounded <= cur.spread) return;
+    this._savePeak(key, { s: rounded, t: this._nowMin() });
+  }
+
+  // The live spread is only seen while the card is on screen, so peaks that
+  // occur with no dashboard open would be missed. The recorder's hourly max
+  // statistics of the spread entity fill those gaps, making the peak the real
+  // maximum since the last reset. Needs a configured spread entity - a spread
+  // computed from the cells is never recorded as a series of its own.
+  async _backfillPeaks() {
+    if (!this._hass || !this._config || this._backfillPending) return;
+    const wanted = this._config.batteries.filter(b => b.spread);
+    if (!wanted.length) return;
+    this._backfillPending = true;
+    try {
+      for (const b of wanted) {
+        try { await this._backfillPeak(b); } catch (e) { /* keep the live peak on errors */ }
       }
-      return;
+    } finally {
+      this._backfillPending = false;
     }
-    const current = peaks.find(p => p.i === key);
-    if (current && rounded <= current.s) return;
-    const byKey = {};
-    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t }; });
-    byKey[key] = { s: rounded, t: this._nowTs() };
-    this._writePeaks(byKey);
+  }
+
+  async _backfillPeak(battery) {
+    const key = this._batteryKey(battery);
+    const cur = this._getPeak(key);
+    const startMs = cur?.r != null
+      ? cur.r * 60000
+      : Date.now() - BCM_PEAK_LOOKBACK_DAYS * 86400000;
+    const resp = await this._hass.callWS({
+      type: 'recorder/statistics_during_period',
+      start_time: new Date(startMs).toISOString(),
+      statistic_ids: [battery.spread],
+      period: 'hour',
+      types: ['max'],
+    });
+    let best = null;
+    for (const row of (resp?.[battery.spread] || [])) {
+      // An hour bucket that straddles the reset also covers values from
+      // before it - skip it, the live tracking covers that remainder.
+      const start = typeof row.start === 'number' ? row.start : Date.parse(row.start);
+      if (!(start >= startMs)) continue;
+      const v = parseFloat(row.max);
+      if (isNaN(v)) continue;
+      if (!best || v > best.v) best = { v, start };
+    }
+    if (!best) return;
+    const rounded = Math.round(best.v);
+    if (cur && cur.spread != null && rounded <= cur.spread) return;
+    // Long-term statistics are hourly, so the stamp is the hour bucket start.
+    this._savePeak(key, { s: rounded, t: Math.floor(best.start / 60000) });
   }
 
   _confirmDialog(title, text, okLabel, onOk) {
@@ -358,15 +446,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _resetPeak(key) {
-    const peaks = this._readPeaks();
-    if (peaks === null) {
-      localStorage.removeItem(this._peakKey(key));
-      this._render();
-      return;
-    }
-    const byKey = {};
-    peaks.forEach(p => { if (p.i !== key) byKey[p.i] = { s: p.s, t: p.t }; });
-    this._writePeaks(byKey); // re-render follows from the helper state change
+    // The entry survives as a reset marker: without it the history backfill
+    // would immediately pull the old peak back in from the recorder.
+    this._savePeak(key, { s: null, t: null, r: this._nowMin() });
   }
 
   _stateVal(entityId) {
@@ -692,9 +774,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
     // spread comes from an entity, which does not depend on the cells.
     if (data.spreadIsEntity || data.complete) this._updatePeak(key, spreadMv);
     const peak = this._getPeak(key);
+    const hasPeak = !!peak && peak.spread != null;
 
     const color = this._spreadColor(spreadMv);
-    const peakMv = peak ? peak.spread : Math.round(spreadMv);
+    const peakMv = hasPeak ? peak.spread : Math.round(spreadMv);
 
     // The status badge rates the peak spread (falls back to the current
     // spread until a peak has been recorded).
@@ -735,10 +818,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
     let peakHtml = '';
     if (showPeak) {
-      const peakColor = peak ? this._spreadColor(peak.spread) : this._baseColor();
-      const peakVal   = peak ? peak.spread + ' mV' : '-';
-      const peakTs    = peak ? '<span class="peak-ts">' + peak.ts + '</span>' : '';
-      const peakReset = peak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
+      const peakColor = hasPeak ? this._spreadColor(peak.spread) : this._baseColor();
+      const peakVal   = hasPeak ? peak.spread + ' mV' : '-';
+      const peakTs    = hasPeak ? '<span class="peak-ts">' + this._fmtStamp(peak.t) + '</span>' : '';
+      const peakReset = hasPeak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
       peakHtml = '<div class="peak-row">'
         + '<span class="peak-label">' + this._t('peak_label') + '</span>'
         + '<span class="peak-val" style="color:' + peakColor + ';">' + peakVal + '</span>'
