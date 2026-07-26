@@ -285,12 +285,16 @@ class BatteryCellMonitoringCard extends HTMLElement {
   // Writes the peaks as a compact array ordered by display position:
   // [{"i":<battery key>,"s":<spread mV>,"t":<epoch minutes>,"r":<reset epoch minutes>}, ...]
   // Empty fields are omitted - the input_text helper caps at 255 characters.
+  // Fields are carried through as-is instead of being rebuilt from a fixed
+  // list: every client rewrites the whole array, so whitelisting here means an
+  // older card silently drops what a newer format added. That is how reset
+  // markers got wiped by a still-cached old version once.
   _writePeaks(byKey) {
     const mk = (k, e) => {
       const o = { i: k };
-      if (e.s != null) o.s = e.s;
-      if (e.t != null) o.t = e.t;
-      if (e.r != null) o.r = e.r;
+      for (const [f, v] of Object.entries(e)) {
+        if (f !== 'i' && v != null) o[f] = v;
+      }
       return o;
     };
     const arr = [];
@@ -360,9 +364,9 @@ class BatteryCellMonitoringCard extends HTMLElement {
       return;
     }
     const byKey = {};
-    peaks.forEach(p => { byKey[p.i] = { s: p.s, t: p.t, r: p.r }; });
+    peaks.forEach(p => { byKey[p.i] = { ...p }; });
     const cur = byKey[key] || {};
-    byKey[key] = { s: pick('s', cur.s), t: pick('t', cur.t), r: pick('r', cur.r) };
+    byKey[key] = { ...cur, s: pick('s', cur.s), t: pick('t', cur.t), r: pick('r', cur.r) };
     this._writePeaks(byKey);
   }
 
