@@ -3,13 +3,13 @@ title: Cell voltage analysis
 status_levels:                # badge/stats color levels (below lowest = green/"Good")
   - threshold: 20
     color: '#eab308'
-    label: Beobachten
+    label: Watch
   - threshold: 50
     color: '#f97316'
-    label: Balancing noetig
+    label: Balancing needed
   - threshold: 200
     color: '#ef4444'
-    label: Kritisch
+    label: Critical
 batteries:
   - id: 1234
     name: B2500 1234 (West)
@@ -27,7 +27,7 @@ batteries:
     show_stats: true
     show_peak: true
   - id: 4321
-    name: B2500 4321 (Ost)
+    name: B2500 4321 (East)
     entity_prefix: hame_energy_hmj_2_hgfedcba4321_cell_voltage_host_
     cell_count: 14
     digits: 2

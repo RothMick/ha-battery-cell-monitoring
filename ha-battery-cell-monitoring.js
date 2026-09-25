@@ -20,124 +20,67 @@
  * keep working (an explicit cells array takes precedence).
  */
 
-// --- i18n ---------------------------------------------------------------
+// --- texts --------------------------------------------------------------
 
-const BCM_TRANSLATIONS = {
-  en: {
-    status_good:      'Good',
-    status_watch:     'Watch',
-    status_balance:   'Balancing needed',
-    status_critical:  'Critical',
-    no_data:          'No data',
-    spread:           'Spread',
-    min:              'Min',
-    mean:             'Mean',
-    max:              'Max',
-    peak_label:       'Peak spread:',
-    reset_peak:       'Reset peak',
-    confirm_reset:    'Really reset the peak spread?',
-    confirm_title:    'Confirm reset',
-    cancel:           'Cancel',
-    status_settings:  'Status settings',
-    standard:         'Default',
-    col_threshold:    'Threshold (mV)',
-    col_color:        'Color',
-    col_text:         'Text',
-    add_entry:        '+ Add entry',
-    battery:          'Battery',
-    card_title:       'Card title',
-    peak_helper:      'Peak helper (input_text)',
-    label_name:       'Name',
-    label_prefix:     'Entity stem of the cells',
-    label_cell_count: 'Number of cells',
-    label_digits:     'Digits of the number',
-    display:          'Display',
-    opt_status:       'Status (badge)',
-    opt_chart:        'Cell voltages',
-    cell_normal:      'Cells',
-    cell_min:         'Lowest voltage cell',
-    cell_max:         'Highest voltage cell',
-    opt_stats:        'Values (min/mean/max/spread)',
-    opt_peak:         'Spread peak with reset',
-    opt_history:      'History chart',
-    hist_minutes:     'Window (minutes)',
-    hist_band:        'Band (min-max)',
-    hist_line:        'Mean line',
-    hist_edge:        'Min/max lines',
-    hist_smooth:      'Smoothed curve',
-    opt_entities:     'Optional entities',
-    entities_hint:    'When set, these entities are used instead of values computed from the cells (stats row, status badge, peak tracking, history chart). Stats values backed by an entity open its detail dialog on click. With a spread entity the peak is derived from its recorded history, so peaks that happened while no dashboard was open still count.',
-    sensor_min:       'Min sensor',
-    sensor_max:       'Max sensor',
-    sensor_mean:      'Mean sensor',
-    sensor_spread:    'Spread sensor',
-    add_battery:      '+ Add battery',
-    move_up:          'Move up',
-    move_down:        'Move down',
-    remove:           'Remove',
-  },
-  de: {
-    status_good:      'Gut',
-    status_watch:     'Beobachten',
-    status_balance:   'Balancing nötig',
-    status_critical:  'Kritisch',
-    no_data:          'Keine Daten',
-    spread:           'Spread',
-    min:              'Min',
-    mean:             'Mean',
-    max:              'Max',
-    peak_label:       'Peak-Spread:',
-    reset_peak:       'Peak zurücksetzen',
-    confirm_reset:    'Peak-Spread wirklich zurücksetzen?',
-    confirm_title:    'Reset bestätigen',
-    cancel:           'Abbrechen',
-    status_settings:  'Status Einstellungen',
-    standard:         'Standard',
-    col_threshold:    'Schwellwert (mV)',
-    col_color:        'Farbe',
-    col_text:         'Text',
-    add_entry:        '+ Eintrag hinzufügen',
-    battery:          'Batterie',
-    card_title:       'Titel der Kachel',
-    peak_helper:      'Peak-Helfer (input_text)',
-    label_name:       'Bezeichnung',
-    label_prefix:     'Entity-Stamm der Zellen',
-    label_cell_count: 'Anzahl Zellen',
-    label_digits:     'Stellen der Nummer',
-    display:          'Anzeige',
-    opt_status:       'Zustand (Badge)',
-    opt_chart:        'Einzelzellspannungen',
-    cell_normal:      'Zellen',
-    cell_min:         'Zelle mit niedrigster Spannung',
-    cell_max:         'Zelle mit höchster Spannung',
-    opt_stats:        'Werte (Min/Mean/Max/Spread)',
-    opt_peak:         'Spread-Peak mit Reset',
-    opt_history:      'Verlaufskurve',
-    hist_minutes:     'Zeitfenster (Minuten)',
-    hist_band:        'Fläche (Min-Max)',
-    hist_line:        'Mittelwert-Linie',
-    hist_edge:        'Min-/Max-Linien',
-    hist_smooth:      'Geglättete Kurve',
-    opt_entities:     'Optionale Entitäten',
-    entities_hint:    'Wenn gesetzt, werden diese Entitäten statt der aus den Zellen berechneten Werte verwendet (Werte-Zeile, Status-Badge, Peak, Verlaufskurve). Werte mit Entität öffnen beim Klick den Detaildialog. Mit Spread-Entität wird der Peak aus deren aufgezeichneter Historie ermittelt — Spitzen ohne geöffnetes Dashboard zählen also mit.',
-    sensor_min:       'Min-Sensor',
-    sensor_max:       'Max-Sensor',
-    sensor_mean:      'Mean-Sensor',
-    sensor_spread:    'Spread-Sensor',
-    add_battery:      '+ Batterie hinzufügen',
-    move_up:          'Nach oben',
-    move_down:        'Nach unten',
-    remove:           'Entfernen',
-  },
+const BCM_STRINGS = {
+  status_good:      'Good',
+  status_watch:     'Watch',
+  status_balance:   'Balancing needed',
+  status_critical:  'Critical',
+  no_data:          'No data',
+  spread:           'Spread',
+  min:              'Min',
+  mean:             'Mean',
+  max:              'Max',
+  peak_label:       'Peak spread:',
+  reset_peak:       'Reset peak',
+  confirm_reset:    'Really reset the peak spread?',
+  confirm_title:    'Confirm reset',
+  cancel:           'Cancel',
+  status_settings:  'Status settings',
+  standard:         'Default',
+  col_threshold:    'Threshold (mV)',
+  col_color:        'Color',
+  col_text:         'Text',
+  add_entry:        '+ Add entry',
+  battery:          'Battery',
+  card_title:       'Card title',
+  peak_helper:      'Peak helper (input_text)',
+  label_name:       'Name',
+  label_prefix:     'Entity stem of the cells',
+  label_cell_count: 'Number of cells',
+  label_digits:     'Digits of the number',
+  label_first_cell: 'First cell number',
+  label_id:         'Peak key (id)',
+  help_id:          'Short, stable key of the peak entry (empty: the entity stem is used). Changing it starts a new peak.',
+  display:          'Display',
+  opt_status:       'Status (badge)',
+  opt_chart:        'Cell voltages',
+  cell_normal:      'Cells',
+  cell_min:         'Lowest voltage cell',
+  cell_max:         'Highest voltage cell',
+  opt_stats:        'Values (min/mean/max/spread)',
+  opt_peak:         'Spread peak with reset',
+  opt_history:      'History chart',
+  hist_minutes:     'Window (minutes)',
+  hist_band:        'Band (min-max)',
+  hist_line:        'Mean line',
+  hist_edge:        'Min/max lines',
+  hist_smooth:      'Smoothed curve',
+  opt_entities:     'Optional entities',
+  entities_hint:    'When set, these entities are used instead of values computed from the cells (stats row, status badge, peak tracking, history chart). Stats values backed by an entity open its detail dialog on click. With a spread entity the peak is derived from its recorded history, so peaks that happened while no dashboard was open still count. Voltage units (V, mV) are read from each entity.',
+  sensor_min:       'Min sensor',
+  sensor_max:       'Max sensor',
+  sensor_mean:      'Mean sensor',
+  sensor_spread:    'Spread sensor',
+  add_battery:      '+ Add battery',
+  move_up:          'Move up',
+  move_down:        'Move down',
+  remove:           'Remove',
 };
 
-function bcmLang(hass) {
-  const lang = (hass?.locale?.language || hass?.language || 'en').substring(0, 2);
-  return BCM_TRANSLATIONS[lang] ? lang : 'en';
-}
-
-function bcmT(hass, key) {
-  return BCM_TRANSLATIONS[bcmLang(hass)][key] ?? BCM_TRANSLATIONS.en[key] ?? key;
+function bcmT(key) {
+  return BCM_STRINGS[key] ?? key;
 }
 
 // How far the peak backfill looks back when the peak was never reset.
@@ -146,6 +89,48 @@ const BCM_PEAK_LOOKBACK_DAYS = 30;
 // Hard limit of an input_text state - not configurable in HA, so the payload
 // has to be kept under it here.
 const BCM_PEAK_HELPER_MAX = 255;
+
+// Writes to a peak helper that HA has not echoed back yet, per helper entity:
+// {base: helper state the first write was based on, values: written JSON
+// strings in order, at: ms of the last write}. Module scope, so card
+// instances sharing a helper see each other's writes. Clients on other
+// devices still race - HA offers no atomic update for an input_text.
+const BCM_PEAK_PENDING = new Map();
+
+// How long an unconfirmed write overrides the helper state. A write HA
+// rejects never produces a new state, so the override has to expire.
+const BCM_PEAK_PENDING_MS = 10000;
+
+// Millivolts per unit for the voltage units HA knows.
+const BCM_MV_PER_UNIT = new Map([['µV', 1e-3], ['μV', 1e-3], ['mV', 1], ['V', 1000], ['kV', 1e6]]);
+
+// Escape text for innerHTML, attribute values included.
+function bcmEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Formats a date part following the HA profile: language for the order and
+// separators, time_format for 12h/24h ('language' keeps the locale default).
+function bcmFormat(hass, date, opts) {
+  const lc = hass?.locale || {};
+  const o = { ...opts };
+  if (opts.hour) {
+    if (lc.time_format === 'am_pm') o.hour12 = true;
+    else if (lc.time_format === '24_hour') o.hour12 = false;
+    else if (lc.time_format === 'system') {
+      const hc = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle;
+      o.hour12 = hc === 'h11' || hc === 'h12';
+    }
+  }
+  let fmt;
+  try {
+    fmt = new Intl.DateTimeFormat(lc.language || hass?.language || undefined, o);
+  } catch {
+    fmt = new Intl.DateTimeFormat(undefined, o);
+  }
+  return { text: fmt.format(date), hour12: !!fmt.resolvedOptions().hour12 };
+}
 
 // Prepend "sensor." when the stem has no domain part.
 function bcmNormalizePrefix(prefix) {
@@ -170,8 +155,13 @@ class BatteryCellMonitoringCard extends HTMLElement {
       balance:  config.warn_thresholds?.balance  ?? 50,
       critical: config.warn_thresholds?.critical ?? 200,
     };
-    setTimeout(() => this._refreshHistories(), 0);
-
+    // Outside the editor preview HA hands a changed config to the existing
+    // element, so nothing else would redraw it before the next state change.
+    this._render();
+    setTimeout(() => {
+      this._refreshHistories();
+      this._backfillPeaks();
+    }, 0);
   }
 
   set hass(hass) {
@@ -185,6 +175,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   connectedCallback() {
+    this._render(); // peak tracking only runs once connected
     this._histTimer = setInterval(() => this._refreshHistories(), 60000);
     this._refreshHistories();
     // Statistics only grow hourly, and live tracking covers the card being
@@ -198,7 +189,14 @@ class BatteryCellMonitoringCard extends HTMLElement {
     clearInterval(this._peakTimer);
   }
 
-  _t(key) { return bcmT(this._hass, key); }
+  _t(key) { return bcmT(key); }
+
+  // Number of the first cell - also the first chart label. 0 is valid for
+  // BMS that count from zero.
+  _cellStart(battery) {
+    const n = parseInt(battery.first_cell, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 1;
+  }
 
   _cellIds(battery) {
     if (Array.isArray(battery.cells) && battery.cells.length) return battery.cells;
@@ -206,7 +204,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (!prefix) return [];
     const count  = parseInt(battery.cell_count, 10) || 0;
     const digits = parseInt(battery.digits, 10) || 2;
-    const start  = parseInt(battery.first_cell, 10) || 1;
+    const start  = this._cellStart(battery);
     const ids = [];
     for (let i = 0; i < count; i++) {
       ids.push(prefix + String(start + i).padStart(digits, '0'));
@@ -229,8 +227,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   // --- helpers ---
 
+  // Always a string: YAML turns `id: 1234` into a number, while keys read back
+  // from the helper JSON or from Object.entries() are compared as strings.
   _batteryKey(battery) {
-    return battery.id || battery.entity_prefix || battery.name || 'battery';
+    return String(battery.id ?? '') || battery.entity_prefix || battery.name || 'battery';
   }
 
   // Status levels: configurable list of {threshold, color, label}.
@@ -278,12 +278,40 @@ class BatteryCellMonitoringCard extends HTMLElement {
   // Returns the peak array from the helper, [] when empty/invalid,
   // or null when the helper entity does not exist (-> localStorage fallback).
   _readPeaks() {
-    const s = this._hass?.states[this._peakHelper()];
-    if (!s) return null;
+    const raw = this._peakState();
+    if (raw === null) return null;
     try {
-      const a = JSON.parse(s.state);
+      const a = JSON.parse(raw);
       return Array.isArray(a) ? a : [];
     } catch { return []; }
+  }
+
+  // The helper value as this client last wrote or saw it, or null when the
+  // helper does not exist. hass.states lags behind a write until HA echoes it
+  // back; every write replaces the whole array, so building the next one from
+  // that stale state would drop the previous write - e.g. when two batteries
+  // raise their peak in the same render.
+  _peakState() {
+    const helper = this._peakHelper();
+    const s = this._hass?.states[helper];
+    if (!s) return null;
+    const p = BCM_PEAK_PENDING.get(helper);
+    if (!p) return s.state;
+    const last = p.values[p.values.length - 1];
+    const idx = p.values.indexOf(s.state);
+    if (idx === p.values.length - 1 || Date.now() - p.at > BCM_PEAK_PENDING_MS) {
+      BCM_PEAK_PENDING.delete(helper); // confirmed, or given up on
+      return s.state;
+    }
+    if (idx >= 0) {
+      // An earlier write landed, later ones are still in flight.
+      p.values = p.values.slice(idx + 1);
+      p.base = s.state;
+      return last;
+    }
+    if (s.state === p.base) return last; // nothing landed yet
+    BCM_PEAK_PENDING.delete(helper); // written by someone else meanwhile
+    return s.state;
   }
 
   // Writes the peaks as a compact array ordered by display position:
@@ -342,25 +370,40 @@ class BatteryCellMonitoringCard extends HTMLElement {
         + '-character input_text limit - skipping write');
       return;
     }
-    const cur = this._hass.states[this._peakHelper()];
-    if (cur && cur.state === value) return; // no-op writes just cause churn
-    this._hass.callService('input_text', 'set_value', {
-      entity_id: this._peakHelper(),
-      value,
-    });
+    const helper = this._peakHelper();
+    const cur = this._peakState();
+    if (cur === value) return; // no-op writes just cause churn
+    const p = BCM_PEAK_PENDING.get(helper);
+    if (p) {
+      p.values.push(value);
+      p.at = Date.now();
+    } else {
+      BCM_PEAK_PENDING.set(helper, { base: cur, values: [value], at: Date.now() });
+    }
+    const call = this._hass.callService('input_text', 'set_value', { entity_id: helper, value });
+    // A rejected write never comes back as a state - stop overriding with it,
+    // but keep later writes still in flight.
+    if (call && typeof call.catch === 'function') {
+      call.catch(() => {
+        const q = BCM_PEAK_PENDING.get(helper);
+        if (!q) return;
+        q.values = q.values.filter(v => v !== value);
+        if (!q.values.length) BCM_PEAK_PENDING.delete(helper);
+      });
+    }
   }
 
   _nowMin() { return Math.floor(Date.now() / 60000); }
 
   // Peak timestamps are stored as epoch minutes; entries written by older
   // versions hold a preformatted string, which is displayed unchanged.
+  // Returns plain text - escape before putting it into HTML.
   _fmtStamp(t) {
     if (t == null) return '';
     if (typeof t === 'string') return t;
     const d = new Date(t * 60000);
-    const locale = bcmLang(this._hass) === 'de' ? 'de-DE' : 'en-GB';
-    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
-         + ' ' + d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return bcmFormat(this._hass, d, { day: '2-digit', month: '2-digit' }).text
+         + ' ' + bcmFormat(this._hass, d, { hour: '2-digit', minute: '2-digit' }).text;
   }
 
   // Returns {spread, t, r} or null. spread === null marks an entry that only
@@ -371,11 +414,19 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (peaks === null) {
       try { e = JSON.parse(localStorage.getItem(this._peakKey(key))); } catch { e = null; }
     } else {
-      e = peaks.find(p => p.i === key) || null;
+      e = peaks.find(p => String(p.i) === key) || null;
     }
     if (!e) return null;
-    // `spread`/`ts` are the legacy localStorage field names.
-    return { spread: e.s ?? e.spread ?? null, t: e.t ?? e.ts ?? null, r: e.r ?? null };
+    // `spread`/`ts` are the legacy localStorage field names. The helper can be
+    // written by anyone, so numbers are enforced here; a legacy string stamp
+    // is kept and escaped when rendered.
+    const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+    const t = e.t ?? e.ts ?? null;
+    return {
+      spread: num(e.s ?? e.spread),
+      t: typeof t === 'string' ? t : num(t),
+      r: num(e.r),
+    };
   }
 
   // Merges a patch into the battery's entry. Passing null clears a field.
@@ -402,6 +453,11 @@ class BatteryCellMonitoringCard extends HTMLElement {
   }
 
   _updatePeak(key, spreadMv) {
+    // The editor preview renders a live card from a config that may never be
+    // saved - e.g. an id tried out there would leave an orphan helper entry.
+    // HA sets hass before `preview`, but both before attaching the card, so
+    // nothing is written until it is connected (which renders again).
+    if (this.preview || !this.isConnected) return;
     const rounded = Math.round(spreadMv);
     const cur = this._getPeak(key);
     if (cur && cur.spread != null && rounded <= cur.spread) return;
@@ -415,6 +471,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
   // computed from the cells is never recorded as a series of its own.
   async _backfillPeaks() {
     if (!this._hass || !this._config || this._backfillPending) return;
+    if (this.preview || !this.isConnected) return; // see _updatePeak
     const wanted = this._config.batteries.filter(b => b.spread);
     if (!wanted.length) return;
     this._backfillPending = true;
@@ -429,28 +486,41 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   async _backfillPeak(battery) {
     const key = this._batteryKey(battery);
-    const cur = this._getPeak(key);
-    const startMs = cur?.r != null
-      ? cur.r * 60000
+    const reset = this._getPeak(key)?.r ?? null;
+    const startMs = reset != null
+      ? reset * 60000
       : Date.now() - BCM_PEAK_LOOKBACK_DAYS * 86400000;
-    const resp = await this._hass.callWS({
+    const req = {
       type: 'recorder/statistics_during_period',
       start_time: new Date(startMs).toISOString(),
       statistic_ids: [battery.spread],
       period: 'hour',
       types: ['max'],
-    });
+    };
+    let resp, factor = 1;
+    try {
+      // HA converts voltage statistics to mV, whatever unit the entity uses.
+      resp = await this._hass.callWS({ ...req, units: { voltage: 'mV' } });
+    } catch (e) {
+      // Older HA versions reject the voltage unit class - convert here.
+      resp = await this._hass.callWS(req);
+      factor = this._mvFactor(battery.spread) ?? 1;
+    }
     let best = null;
     for (const row of (resp?.[battery.spread] || [])) {
       // An hour bucket that straddles the reset also covers values from
       // before it - skip it, the live tracking covers that remainder.
       const start = typeof row.start === 'number' ? row.start : Date.parse(row.start);
       if (!(start >= startMs)) continue;
-      const v = parseFloat(row.max);
+      const v = parseFloat(row.max) * factor;
       if (isNaN(v)) continue;
       if (!best || v > best.v) best = { v, start };
     }
     if (!best) return;
+    // Re-read after the query: a live peak or a reset may have come in while
+    // it ran, and saving against the earlier state would undo them.
+    const cur = this._getPeak(key);
+    if ((cur?.r ?? null) !== reset) return; // reset meanwhile - next run starts from it
     const rounded = Math.round(best.v);
     if (cur && cur.spread != null && rounded <= cur.spread) return;
     // Long-term statistics are hourly, so the stamp is the hour bucket start.
@@ -493,17 +563,42 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return isNaN(v) ? null : v;
   }
 
+  // mV per unit of the entity's unit_of_measurement, null when it has no
+  // voltage unit.
+  _mvFactor(entityId) {
+    return BCM_MV_PER_UNIT.get(this._hass?.states[entityId]?.attributes?.unit_of_measurement) ?? null;
+  }
+
+  // Cell, min, max and mean values are handled in V - taken as V without a
+  // voltage unit.
+  _volts(entityId) {
+    const v = this._stateVal(entityId);
+    const f = this._mvFactor(entityId);
+    return v === null || f === null || f === 1000 ? v : v * f / 1000;
+  }
+
+  // The spread is handled in mV - taken as mV without a voltage unit.
+  // Rounded to µV so float noise can't tip a status threshold.
+  _spreadMv(entityId) {
+    const v = this._stateVal(entityId);
+    const f = this._mvFactor(entityId);
+    return v === null || f === null || f === 1 ? v : Math.round(v * f * 1000) / 1000;
+  }
+
   _data(battery) {
     const ids = this._cellIds(battery);
-    const raw = ids.map(id => this._stateVal(id));
+    // One slot per configured cell, null while unavailable - the chart keeps
+    // the slot so every bar stays at its real cell number.
+    const raw = ids.map(id => this._volts(id));
     const cells = raw.filter(v => v !== null);
     if (!cells.length) return null;
     const cellMin = Math.min(...cells);
     const cellMax = Math.max(...cells);
-    const spreadEnt = this._stateVal(battery.spread);
+    const spreadEnt = this._spreadMv(battery.spread);
     // Fall back to values computed from the cells when no optional entities
     // are configured or they are unavailable.
     return {
+      raw,
       cells,
       // Only true once every configured cell reports a value - used to keep
       // partial data (e.g. cells still restoring after a HA restart) from
@@ -511,10 +606,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
       complete: cells.length === ids.length,
       // An entity-provided spread is trustworthy even while cells are partial.
       spreadIsEntity: spreadEnt !== null,
-      spreadMv: spreadEnt ?? (cellMax - cellMin) * 1000,
-      min:      this._stateVal(battery.min)    ?? cellMin,
-      max:      this._stateVal(battery.max)    ?? cellMax,
-      mean:     this._stateVal(battery.mean)   ?? cells.reduce((a, b) => a + b, 0) / cells.length,
+      spreadMv: spreadEnt ?? Math.round((cellMax - cellMin) * 1e6) / 1000,
+      min:      this._volts(battery.min)    ?? cellMin,
+      max:      this._volts(battery.max)    ?? cellMax,
+      mean:     this._volts(battery.mean)   ?? cells.reduce((a, b) => a + b, 0) / cells.length,
     };
   }
 
@@ -555,10 +650,16 @@ class BatteryCellMonitoringCard extends HTMLElement {
       minimal_response: true,
       no_attributes: true,
     });
-    const series = ids.map(id => (resp[id] || [])
+    // Scaled to V by each entity's current unit (history is fetched without
+    // attributes).
+    const toV = ids.map(id => {
+      const f = this._mvFactor(id);
+      return f === null ? 1 : f / 1000;
+    });
+    const series = ids.map((id, idx) => (resp[id] || [])
       .map(p => ({
         t: typeof p.lu === 'number' ? p.lu * 1000 : Date.parse(p.lu || p.last_updated || p.last_changed),
-        v: parseFloat(p.s ?? p.state),
+        v: toV[idx] === 1 ? parseFloat(p.s ?? p.state) : parseFloat(p.s ?? p.state) * toV[idx],
       }))
       .filter(p => !isNaN(p.t) && !isNaN(p.v)));
     const events = [];
@@ -659,13 +760,11 @@ class BatteryCellMonitoringCard extends HTMLElement {
     return out;
   }
 
-  // Hour:minute label following the HA display settings (12h/24h).
+  // Hour:minute label following the HA display settings (12h/24h). The " h"
+  // suffix only goes on 24h times - a 12h time already ends in AM/PM.
   _fmtTime(ts) {
-    const lc = this._hass?.locale || {};
-    const opts = { hour: '2-digit', minute: '2-digit' };
-    if (lc.time_format === 'am_pm') opts.hour12 = true;
-    else if (lc.time_format === '24_hour') opts.hour12 = false;
-    return new Date(ts).toLocaleTimeString(lc.language || 'en', opts) + ' h';
+    const f = bcmFormat(this._hass, new Date(ts), { hour: '2-digit', minute: '2-digit' });
+    return f.hour12 ? f.text : f.text + ' h';
   }
 
   // One closed SVG path: forward along the max curve, backward along the
@@ -753,7 +852,10 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   // --- render ---
 
-  _renderChart(cells, mean) {
+  // One bar per configured cell; an unavailable cell (null) keeps its slot
+  // as a flat marker so the bars stay aligned with their cell numbers.
+  _renderChart(raw, mean) {
+    const cells = raw.filter(v => v !== null);
     const H = 64, barW = 14, gap = 3, padY = 4;
     const innerH = H - padY * 2;
     const yMin = Math.min(...cells) - 0.012;
@@ -772,15 +874,18 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const maxCnt = cells.filter(v => v === vMax).length;
     const markMin = vMax > vMin && minCnt <= 3;
     const markMax = vMax > vMin && maxCnt <= 3;
-    const bars = cells.map((v, i) => {
+    const bars = raw.map((v, i) => {
       const x    = i * (barW + gap);
+      if (v === null) {
+        return '<rect x="' + x.toFixed(1) + '" y="' + (H - padY - 2) + '" width="' + barW + '" height="2" rx="1" style="fill:var(--disabled-text-color,#888)"/>';
+      }
       const top  = toY(v);
       const bot  = toY(yMin);
       const h    = Math.max(bot - top, 2);
       const fill = (markMin && v === vMin) ? minC : (markMax && v === vMax) ? maxC : baseC;
       return '<rect x="' + x.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + barW + '" height="' + h.toFixed(1) + '" fill="' + fill + '" rx="2"/>';
     }).join('');
-    const totalW = cells.length * (barW + gap) - gap;
+    const totalW = raw.length * (barW + gap) - gap;
     const my = toY(mean).toFixed(1);
     const meanLine = '<line x1="0" y1="' + my + '" x2="' + totalW + '" y2="' + my + '" stroke="var(--secondary-text-color)" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/>';
     return '<svg viewBox="0 0 ' + totalW + ' ' + H + '" class="cell-chart" preserveAspectRatio="none">' + bars + meanLine + '</svg>';
@@ -788,12 +893,12 @@ class BatteryCellMonitoringCard extends HTMLElement {
 
   _renderBattery(battery) {
     const data = this._data(battery);
-    const name = battery.name || this._t('battery');
+    const name = bcmEsc(battery.name || this._t('battery'));
     if (!data) {
       return '<div class="battery-section"><div class="battery-header"><span class="battery-name">' + name + '</span></div><p class="unavailable">' + this._t('no_data') + '</p></div>';
     }
 
-    const { cells, spreadMv, min, max, mean } = data;
+    const { spreadMv, min, max, mean } = data;
     const key = this._batteryKey(battery);
 
     const showStatus = battery.show_status !== false;
@@ -820,15 +925,17 @@ class BatteryCellMonitoringCard extends HTMLElement {
     const badgeColor = this._spreadColor(badgeMv);
     const badgeLabel = this._spreadLabel(badgeMv);
     const badge = showStatus
-      ? '<span class="spread-badge" style="color:' + badgeColor + ';border-color:' + badgeColor + ';">' + badgeMv + ' mV – ' + badgeLabel + '</span>'
+      ? '<span class="spread-badge" style="color:' + bcmEsc(badgeColor) + ';border-color:' + bcmEsc(badgeColor) + ';">' + badgeMv + ' mV – ' + bcmEsc(badgeLabel) + '</span>'
       : '';
 
     const fmt = v => Math.round(v * 1000) + ' mV';
 
     let chartHtml = '';
     if (showChart) {
-      const cellLabels = cells.map((_, i) => '<span>' + (i + 1) + '</span>').join('');
-      chartHtml = this._renderChart(cells, mean) + '<div class="cell-labels">' + cellLabels + '</div>';
+      const start = this._cellStart(battery);
+      const cellLabels = data.raw.map((v, i) =>
+        '<span' + (v === null ? ' class="na"' : '') + '>' + (start + i) + '</span>').join('');
+      chartHtml = this._renderChart(data.raw, mean) + '<div class="cell-labels">' + cellLabels + '</div>';
     }
     const histHtml = showHistory ? this._renderHistory(battery) : '';
 
@@ -839,7 +946,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
       const clickable = entityId && this._hass.states[entityId];
       const inner = '<span class="stat-lbl">' + lbl + '</span>' + valHtml;
       return clickable
-        ? '<button type="button" class="stat" data-entity="' + entityId + '">' + inner + '</button>'
+        ? '<button type="button" class="stat" data-entity="' + bcmEsc(entityId) + '">' + inner + '</button>'
         : '<div class="stat">' + inner + '</div>';
     };
     const statsHtml = showStats
@@ -847,7 +954,7 @@ class BatteryCellMonitoringCard extends HTMLElement {
         + stat(this._t('min'), '<span class="stat-val">' + fmt(min) + '</span>', battery.min)
         + stat(this._t('mean'), '<span class="stat-val">' + fmt(mean) + '</span>', battery.mean)
         + stat(this._t('max'), '<span class="stat-val">' + fmt(max) + '</span>', battery.max)
-        + stat(this._t('spread'), '<span class="stat-val" style="color:' + color + ';">' + Math.round(spreadMv) + ' mV</span>', battery.spread)
+        + stat(this._t('spread'), '<span class="stat-val" style="color:' + bcmEsc(color) + ';">' + Math.round(spreadMv) + ' mV</span>', battery.spread)
         + '</div>'
       : '';
 
@@ -855,11 +962,13 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (showPeak) {
       const peakColor = hasPeak ? this._spreadColor(peak.spread) : this._baseColor();
       const peakVal   = hasPeak ? peak.spread + ' mV' : '-';
-      const peakTs    = hasPeak ? '<span class="peak-ts">' + this._fmtStamp(peak.t) + '</span>' : '';
-      const peakReset = hasPeak ? '<button class="peak-reset" data-key="' + key + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
+      // The stamp may be a legacy string straight from the helper, which
+      // anyone able to set an input_text can write - escape it.
+      const peakTs    = hasPeak ? '<span class="peak-ts">' + bcmEsc(this._fmtStamp(peak.t)) + '</span>' : '';
+      const peakReset = hasPeak ? '<button class="peak-reset" data-key="' + bcmEsc(key) + '" title="' + this._t('reset_peak') + '">↺</button>' : '';
       peakHtml = '<div class="peak-row">'
         + '<span class="peak-label">' + this._t('peak_label') + '</span>'
-        + '<span class="peak-val" style="color:' + peakColor + ';">' + peakVal + '</span>'
+        + '<span class="peak-val" style="color:' + bcmEsc(peakColor) + ';">' + peakVal + '</span>'
         + peakTs + peakReset
         + '</div>';
     }
@@ -875,53 +984,63 @@ class BatteryCellMonitoringCard extends HTMLElement {
     if (this._dialogOpen) return; // keep the confirmation dialog alive
 
     const sections = this._config.batteries.map(b => this._renderBattery(b)).join('<div class="divider"></div>');
+    const html = (this._config.title ? '<div class="card-title">' + bcmEsc(this._config.title) + '</div>' : '')
+      + sections;
 
-    this.shadowRoot.innerHTML = '<style>'
-      + ':host{display:block}'
-      + 'ha-card{padding:16px 16px 12px}'
-      + '.card-title{font-size:var(--ha-card-header-font-size,24px);font-weight:400;line-height:1.2;color:var(--ha-card-header-color,var(--primary-text-color));margin-bottom:14px}'
-      + '.battery-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0}'
-      + '.battery-name{font-size:16px;font-weight:500;color:var(--primary-text-color)}'
-      + '.spread-badge{font-size:12px;font-weight:700;padding:3px 10px;border:1.5px solid;border-radius:14px;white-space:nowrap}'
-      + '.cell-chart{width:100%;height:64px;display:block;overflow:visible;margin-top:10px}'
-      + '.cell-labels{display:flex;margin-top:3px}'
-      + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
-      + '.hist-wrap{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:100px auto;column-gap:6px;margin-top:15px}'
-      + '.hist-yaxis{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}'
-      + '.hist-chart{grid-column:2;grid-row:1;width:100%;height:100px;display:block}'
-      + '.hist-xaxis{grid-column:2;grid-row:2;display:flex;justify-content:space-between;margin-top:3px}'
-      + '.hist-lbl{font-size:10px;color:var(--secondary-text-color);line-height:1;white-space:nowrap}'
-      + '.stats-row{display:flex;gap:6px;margin-top:10px}'
-      + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
-      + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
-      + '.stat-val{font-size:14px;font-weight:500;color:var(--primary-text-color);margin-top:2px}'
-      + 'button.stat{border:none;margin:0;font:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0)}'
-      + '.stat[data-entity]:hover{filter:brightness(1.15)}'
-      + '.peak-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--secondary-background-color);border-radius:8px}'
-      + '.peak-label{font-size:14px;color:var(--secondary-text-color);flex-shrink:0}'
-      + '.peak-val{font-size:14px;font-weight:700;flex-shrink:0}'
-      + '.peak-ts{font-size:14px;color:var(--secondary-text-color);flex:1}'
-      + '.peak-reset{background:none;border:none;cursor:pointer;color:var(--secondary-text-color);font-size:14px;padding:0 2px;line-height:1;flex-shrink:0}'
-      + '.peak-reset:hover{color:var(--primary-text-color)}'
-      + '.divider{height:1px;background:var(--divider-color);margin:14px 0}'
-      + '.unavailable{font-size:13px;font-style:italic;color:var(--secondary-text-color)}'
-      + '.bcm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}'
-      + '.bcm-dialog{background:var(--card-background-color,#1c1c1e);border-radius:14px;padding:20px;max-width:320px;width:80%;box-shadow:0 8px 32px rgba(0,0,0,0.4)}'
-      + '.bcm-dialog-title{font-size:17px;font-weight:600;color:var(--primary-text-color);margin-bottom:8px}'
-      + '.bcm-dialog-text{font-size:14px;color:var(--primary-text-color);margin-bottom:18px}'
-      + '.bcm-dialog-actions{display:flex;justify-content:flex-end;gap:6px}'
-      + '.bcm-btn{background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;color:var(--primary-color);text-transform:uppercase;letter-spacing:.03em}'
-      + '.bcm-btn:hover{background:var(--secondary-background-color)}'
-      + '</style>'
-      + '<ha-card>'
-      + (this._config.title ? '<div class="card-title">' + this._config.title + '</div>' : '')
-      + sections
-      + '</ha-card>';
+    // Stylesheet and ha-card are created once; later renders only swap the
+    // card content, and skip that when nothing changed (a helper write that
+    // doesn't alter the display, a history refresh with the same data) -
+    // a rebuild drops hover state and swallows a tap that lands mid-rebuild.
+    if (!this._cardEl) {
+      this.shadowRoot.innerHTML = '<style>'
+        + ':host{display:block}'
+        + 'ha-card{padding:16px 16px 12px}'
+        + '.card-title{font-size:var(--ha-card-header-font-size,24px);font-weight:400;line-height:1.2;color:var(--ha-card-header-color,var(--primary-text-color));margin-bottom:14px}'
+        + '.battery-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0}'
+        + '.battery-name{font-size:16px;font-weight:500;color:var(--primary-text-color)}'
+        + '.spread-badge{font-size:12px;font-weight:700;padding:3px 10px;border:1.5px solid;border-radius:14px;white-space:nowrap}'
+        + '.cell-chart{width:100%;height:64px;display:block;overflow:visible;margin-top:10px}'
+        + '.cell-labels{display:flex;margin-top:3px}'
+        + '.cell-labels span{flex:1;text-align:center;font-size:10px;color:var(--secondary-text-color)}'
+        + '.cell-labels span.na{opacity:.4}'
+        + '.hist-wrap{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:100px auto;column-gap:6px;margin-top:15px}'
+        + '.hist-yaxis{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}'
+        + '.hist-chart{grid-column:2;grid-row:1;width:100%;height:100px;display:block}'
+        + '.hist-xaxis{grid-column:2;grid-row:2;display:flex;justify-content:space-between;margin-top:3px}'
+        + '.hist-lbl{font-size:10px;color:var(--secondary-text-color);line-height:1;white-space:nowrap}'
+        + '.stats-row{display:flex;gap:6px;margin-top:10px}'
+        + '.stat{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--secondary-background-color);border-radius:8px;padding:6px 2px}'
+        + '.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}'
+        + '.stat-val{font-size:14px;font-weight:500;color:var(--primary-text-color);margin-top:2px}'
+        + 'button.stat{border:none;margin:0;font:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0)}'
+        + '.stat[data-entity]:hover{filter:brightness(1.15)}'
+        + '.peak-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--secondary-background-color);border-radius:8px}'
+        + '.peak-label{font-size:14px;color:var(--secondary-text-color);flex-shrink:0}'
+        + '.peak-val{font-size:14px;font-weight:700;flex-shrink:0}'
+        + '.peak-ts{font-size:14px;color:var(--secondary-text-color);flex:1}'
+        + '.peak-reset{background:none;border:none;cursor:pointer;color:var(--secondary-text-color);font-size:14px;padding:0 2px;line-height:1;flex-shrink:0}'
+        + '.peak-reset:hover{color:var(--primary-text-color)}'
+        + '.divider{height:1px;background:var(--divider-color);margin:14px 0}'
+        + '.unavailable{font-size:13px;font-style:italic;color:var(--secondary-text-color)}'
+        + '.bcm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000}'
+        + '.bcm-dialog{background:var(--card-background-color,#1c1c1e);border-radius:14px;padding:20px;max-width:320px;width:80%;box-shadow:0 8px 32px rgba(0,0,0,0.4)}'
+        + '.bcm-dialog-title{font-size:17px;font-weight:600;color:var(--primary-text-color);margin-bottom:8px}'
+        + '.bcm-dialog-text{font-size:14px;color:var(--primary-text-color);margin-bottom:18px}'
+        + '.bcm-dialog-actions{display:flex;justify-content:flex-end;gap:6px}'
+        + '.bcm-btn{background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;color:var(--primary-color);text-transform:uppercase;letter-spacing:.03em}'
+        + '.bcm-btn:hover{background:var(--secondary-background-color)}'
+        + '</style>'
+        + '<ha-card></ha-card>';
+      this._cardEl = this.shadowRoot.querySelector('ha-card');
+    }
+    if (html === this._html) return;
+    this._html = html;
+    this._cardEl.innerHTML = html;
 
-    this.shadowRoot.querySelectorAll('.peak-reset').forEach(btn => {
+    this._cardEl.querySelectorAll('.peak-reset').forEach(btn => {
       btn.addEventListener('click', () => this._confirmReset(btn.dataset.key));
     });
-    this.shadowRoot.querySelectorAll('.stat[data-entity]').forEach(el => {
+    this._cardEl.querySelectorAll('.stat[data-entity]').forEach(el => {
       el.addEventListener('click', () => this._moreInfo(el.dataset.entity));
     });
   }
@@ -967,7 +1086,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     this.shadowRoot.querySelectorAll('ha-form').forEach(f => { f.hass = hass; });
   }
 
-  _t(key) { return bcmT(this._hass, key); }
+  _t(key) { return bcmT(key); }
 
   // Materialize the status level list in the config so it can be edited.
   _ensureLevels() {
@@ -1092,8 +1211,10 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       { name: 'entity_prefix', label: this._t('label_prefix'), selector: { text: {} } },
       { type: 'grid', name: '', schema: [
         { name: 'cell_count', label: this._t('label_cell_count'), selector: { number: { min: 1, max: 32, mode: 'box' } } },
+        { name: 'first_cell', label: this._t('label_first_cell'), selector: { number: { min: 0, max: 999, mode: 'box' } } },
         { name: 'digits', label: this._t('label_digits'), selector: { number: { min: 1, max: 3, mode: 'box' } } },
       ]},
+      { name: 'id', label: this._t('label_id'), helper: this._t('help_id'), selector: { text: {} } },
     ];
   }
 
@@ -1102,7 +1223,9 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       name:          b.name || '',
       entity_prefix: b.entity_prefix || '',
       cell_count:    b.cell_count ?? 14,
+      first_cell:    b.first_cell ?? 1,
       digits:        b.digits ?? 2,
+      id:            b.id != null ? String(b.id) : '',
     };
   }
 
@@ -1113,6 +1236,12 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     b.entity_prefix = values.entity_prefix || '';
     b.cell_count    = parseInt(values.cell_count, 10) || 1;
     b.digits        = parseInt(values.digits, 10) || 1;
+    // 1 is the default - only a different start is written to the config.
+    const first = parseInt(values.first_cell, 10);
+    if (Number.isFinite(first) && first >= 0 && first !== 1) b.first_cell = first;
+    else delete b.first_cell;
+    const id = String(values.id ?? '').trim();
+    if (id) b.id = id; else delete b.id;
     // Drop a legacy cells array once the prefix mode is used.
     if (b.entity_prefix && Array.isArray(b.cells)) delete b.cells;
     this._queue();
@@ -1151,7 +1280,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
     const batteryBlocks = batteries.map((b, i) => {
       return '<div class="battery-box">'
         + '<div class="battery-box-header">'
-        + '<span class="battery-box-title">' + this._t('battery') + ' ' + (i + 1) + (b.name ? ' – ' + b.name : '') + '</span>'
+        + '<span class="battery-box-title">' + this._t('battery') + ' ' + (i + 1) + (b.name ? ' – ' + bcmEsc(b.name) : '') + '</span>'
         + '<span class="battery-box-actions">'
         + '<button class="icon-btn" data-action="up" data-idx="' + i + '" title="' + this._t('move_up') + '"' + (i === 0 ? ' disabled' : '') + '>▲</button>'
         + '<button class="icon-btn" data-action="down" data-idx="' + i + '" title="' + this._t('move_down') + '"' + (i === batteries.length - 1 ? ' disabled' : '') + '>▼</button>'
@@ -1203,7 +1332,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       + '<div class="acc-body">'
       + '<div class="acc-hint">' + this._t('entities_hint') + '</div>'
       + batteries.map((b, i) =>
-        '<div class="sensors-name">' + (b.name || (this._t('battery') + ' ' + (i + 1))) + '</div>'
+        '<div class="sensors-name">' + bcmEsc(b.name || (this._t('battery') + ' ' + (i + 1))) + '</div>'
         + '<ha-form id="entity-sensors-' + i + '"></ha-form>'
       ).join('')
       + '</div>'
@@ -1277,6 +1406,7 @@ class BatteryCellMonitoringEditor extends HTMLElement {
       form.schema = this._batterySchema();
       form.data = this._batteryFormData(b);
       form.computeLabel = s => s.label ?? s.name;
+      form.computeHelper = s => s.helper;
       form.addEventListener('value-changed', ev => {
         this._applyBatteryForm(i, ev.detail.value || {});
       });

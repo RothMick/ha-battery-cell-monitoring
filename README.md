@@ -8,13 +8,13 @@ This card was developed for B2500-Marstek batteries but can also be used with ot
 
 ## Features
 
-- **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value)
+- **Cell voltages chart** — all cells as bars on a zoomed Y axis; the lowest and highest voltage cells are highlighted in configurable colors (highlight is skipped when more than 3 cells share the value). An unavailable cell keeps its slot as a flat marker with a dimmed number, so every bar stays at its real cell number
 - **Status badge** — rates the **peak** spread with freely configurable levels (threshold, color, label); below the lowest threshold a non-deletable "Default" level applies (color configurable)
 - **Stats row** — current min / mean / max / spread; values backed by a configured entity open the entity's detail dialog on click/tap (works on desktop and iOS)
-- **Peak spread tracking** — highest spread since the last reset, with timestamp and reset button (with confirmation dialog). With a `spread` entity configured, the peak is derived from the recorder's hourly max statistics, so peaks that occurred while no dashboard was open still count; without one, only values observed while the card is on screen are tracked. The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper
+- **Peak spread tracking** — highest spread since the last reset, with timestamp and reset button (with confirmation dialog). With a `spread` entity configured, the peak is derived from the recorder's hourly max statistics, so peaks that occurred while no dashboard was open still count; without one, only values observed while the card is on screen are tracked. The peak is stored in an `input_text` helper, synced across all devices; localStorage is the fallback. Multiple card instances can share one helper — writes HA has not confirmed yet are shared between the cards on a page, so two batteries raising their peak at the same moment don't overwrite each other
 - **History chart** — colored band between the min and max curves (one closed SVG path, not filled to zero), the min/max boundaries drawn as lines and the mean as a separate line — each with its own configurable color; optional smoothing (time-bucket aggregation + monotone cubic interpolation, overshoot-free; the mean is placed by its relative position inside the band so it never sticks to an edge); window configurable
-- **UI editor** — card title, peak helper, batteries (add / remove / reorder, per-battery display switches), plus collapsible sections for optional entities, status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
-- **Localized** — English and German, follows the HA UI language
+- **UI editor** — card title, peak helper, batteries (add / remove / reorder, cell numbering incl. first cell number, peak key `id`, per-battery display switches), plus collapsible sections for optional entities, status levels, cell colors and the history chart. Text input is buffered (no focus loss while typing), structural changes keep the scroll position
+- **Units and time format** — voltage units (V, mV, …) are read from each entity; timestamps follow the HA language and 12/24 h setting
 - Works without template sensors — min/max/mean/spread are computed from the cell values when needed
 
 ## Installation
@@ -63,7 +63,7 @@ batteries:
 | `entity_prefix` | string | – | Entity ID stem of the cell sensors (`sensor.` is prepended when no domain is given) |
 | `cell_count` | number | – | Number of cells (1–32) |
 | `digits` | number | 2 | Digits of the appended number |
-| `first_cell` | number | 1 | First cell number |
+| `first_cell` | number | 1 | First cell number (0 for BMS that count from zero); also the first chart label |
 | `cells` | list | – | Alternative: explicit entity list (takes precedence) |
 | `show_status` / `show_chart` / `show_stats` / `show_peak` | bool | true | Display options |
 | `show_history` | bool | false | History chart (min/max band + mean line) |
@@ -84,6 +84,8 @@ When set, an entity is used consistently everywhere instead of the value compute
 A configured `spread` entity additionally makes the peak a *real* maximum: on load (and every 30 min) the card queries the recorder's hourly `max` statistics since the last reset — or over the last 30 days when the peak was never reset — so spikes that happened while no dashboard was open are picked up too. The entity needs `state_class: measurement` for those statistics to exist. Backfilled timestamps are the start of the hour the peak fell into; peaks seen live are minute-exact. Without a `spread` entity the card can only track what it observes while on screen (no long-term series of the computed spread exists to look back at).
 
 All four are optional. The card works fully without them — the values are then computed from the cell entities.
+
+Units are taken from each entity's `unit_of_measurement`: cells and `min` / `max` / `mean` may report V or mV, `spread` may report mV or V. Without a unit, cell values are read as V and the spread as mV.
 
 ## Spread assessment (LFP)
 
