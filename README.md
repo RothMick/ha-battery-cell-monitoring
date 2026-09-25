@@ -191,3 +191,51 @@ input_text:
 ```
 
 Do not set `initial` on this helper — it disables state restore, so the peak would reset to `[]` on every HA restart instead of persisting.
+
+## Changelog
+
+Pre-releases are only offered by HACS when *Show beta versions* is enabled for this repository.
+
+| Version | Change |
+|---|---|
+| v1.12.0 (pre-release) | Unavailable cells keep their chart slot and number instead of shifting the following bars; `first_cell: 0` works and chart labels start at `first_cell`; writes to a shared peak helper no longer overwrite each other; text from the helper and the config is escaped; the recorder backfill no longer undoes a newer live peak or a reset; config changes show immediately; numeric ids no longer create a duplicate helper entry; the editor preview no longer writes peaks; voltage units are read from `unit_of_measurement`; timestamps follow the HA language and 12/24 h setting; less redrawing; editor fields for `id` and the first cell number; card texts English only |
+| v1.11.2 | Peaks helper kept under the 255-character `input_text` limit (entries of other cards are dropped oldest first, own entries never); `id` option documented |
+| v1.11.1 | Helper fields unknown to the card are carried through, so an older cached card no longer wipes the reset marker |
+| v1.11.0 | With a `spread` entity the peak is derived from the recorder's hourly max statistics since the last reset (30-day lookback without a reset); timestamps stored as epoch minutes |
+| v1.10.1 | Stats more-info tap fixed on iOS Safari |
+| v1.10.0 | Optional entities in their own editor section; stats values backed by an entity open the more-info dialog |
+| v1.9.5 | No peak tracking while cells are still restoring after a restart; MIT license |
+| v1.9.4 | Tighter tile spacing; axes in the history chart |
+| v1.9.3 | History chart label size |
+| v1.9.2 | History axis labels rendered as HTML (no stretching); uniform peak row text |
+| v1.9.1 | Warning hints removed; cell mean line in the secondary text color |
+| v1.9.0 | History chart: min/max boundary lines with their own color, opaque band |
+| v1.8.4 | Smoothed mean placed by its position within the band; full example in the README |
+| v1.8.3 | "h" suffix on the history time labels |
+| v1.8.2 | Stats row in mV |
+| v1.8.1 | History chart: mV on the y axis, time labels in the HA time format |
+| v1.8.0 | Optional min/max/mean/spread entities per battery in the editor |
+| v1.7.7 | Write loop between card instances sharing the peak helper fixed |
+| v1.7.6 | Band fill: smoothed edges sampled on a common grid and clamped |
+| v1.7.5 | Constant-width strokes |
+| v1.7.4 | Band bottom edge fixed |
+| v1.7.3 | Smoothing aggregates the data into time buckets before drawing |
+| v1.7.2 | Min/max cells highlighted only when at most 3 cells share the value |
+| v1.7.1 | Monotone cubic smoothing instead of Catmull-Rom |
+| v1.7.0 | Cell colors configurable (normal / lowest / highest) |
+| v1.6.0 | History settings: window in minutes, colors, smoothing |
+| v1.5.0 | History chart: min/max band with mean line |
+| v1.4.3 | Warning banner styling |
+| v1.4.2 | Non-deletable "Default" status entry with editable color |
+| v1.4.1 | Larger hint text, warning icon in the level color |
+| v1.4.0 | Dismissed-hint flag stored in the peak helper |
+| v1.3.4 | Peak reset clears the dismissed-hint marker |
+| v1.3.3 | Hint text in the level color; dismissing a hint asks for confirmation |
+| v1.3.2 | Warning hints rate the peak spread; custom reset confirmation dialog |
+| v1.3.1 | Editor: buffered text input, scroll position kept, native color swatches |
+| v1.3.0 | Freely configurable status and warning levels |
+| v1.2.0 | Status and warning thresholds configurable in the UI |
+| v1.1.2 | Warning banner shows hint text only; peak reset asks for confirmation |
+| v1.1.1 | Status badge rates the peak spread instead of the current spread |
+| v1.1.0 | Peaks stored in an `input_text` helper, synced across devices |
+| v1.0.0 | Initial release |
