@@ -58,6 +58,7 @@ batteries:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `id` | string | – | Short key for the battery's entry in the peaks helper (falls back to `entity_prefix`, then `name`). Set it when several cards share the helper or when the same battery appears on several dashboards with different entity prefixes — a short, stable key keeps the helper under its 255-character limit and gives one peak per battery |
 | `name` | string | – | Display name |
 | `entity_prefix` | string | – | Entity ID stem of the cell sensors (`sensor.` is prepended when no domain is given) |
 | `cell_count` | number | – | Number of cells (1–32) |
