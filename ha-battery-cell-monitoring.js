@@ -143,6 +143,10 @@ function bcmT(hass, key) {
 // How far the peak backfill looks back when the peak was never reset.
 const BCM_PEAK_LOOKBACK_DAYS = 30;
 
+// Hard limit of an input_text state - not configurable in HA, so the payload
+// has to be kept under it here.
+const BCM_PEAK_HELPER_MAX = 255;
+
 // Prepend "sensor." when the stem has no domain part.
 function bcmNormalizePrefix(prefix) {
   const p = (prefix || '').trim();
@@ -297,20 +301,47 @@ class BatteryCellMonitoringCard extends HTMLElement {
       }
       return o;
     };
-    const arr = [];
+    const own = [];
     const seen = new Set();
     // Own batteries first, in display order.
     for (const b of this._config.batteries) {
       const k = this._batteryKey(b);
       seen.add(k);
-      if (byKey[k]) arr.push(mk(k, byKey[k]));
+      if (byKey[k]) own.push(mk(k, byKey[k]));
     }
     // Preserve entries of other card instances/configs - dropping them
     // makes two cards overwrite each other in an endless write loop.
+    const foreign = [];
     for (const [k, e] of Object.entries(byKey)) {
-      if (!seen.has(k)) arr.push(mk(k, e));
+      if (!seen.has(k)) foreign.push(mk(k, e));
+    }
+    // ...but only as far as the helper can hold. Long keys (an entity_prefix
+    // used as key runs ~50 chars) plus leftovers from renamed or deleted card
+    // configs push the array past the 255-character input_text limit, and HA
+    // then rejects every single write with "Invalid value (length range
+    // 0 - 255)" - once per render. Foreign entries go oldest first; entries
+    // whose `t` is a legacy preformatted string count as oldest.
+    const stamp = (e) => (typeof e.t === 'number' ? e.t : 0);
+    let kept = foreign;
+    let arr = [...own, ...kept];
+    if (JSON.stringify(arr).length > BCM_PEAK_HELPER_MAX) {
+      const byAge = [...foreign].sort((a, b) => stamp(a) - stamp(b));
+      const dropped = new Set();
+      while (byAge.length && JSON.stringify(arr).length > BCM_PEAK_HELPER_MAX) {
+        dropped.add(byAge.shift());
+        kept = foreign.filter(e => !dropped.has(e));
+        arr = [...own, ...kept];
+      }
     }
     const value = JSON.stringify(arr);
+    if (value.length > BCM_PEAK_HELPER_MAX) {
+      // Only own batteries left and still too long - writing would just
+      // produce the same rejected call on every render.
+      console.warn('ha-battery-cell-monitoring: peak payload is '
+        + value.length + ' characters, over the ' + BCM_PEAK_HELPER_MAX
+        + '-character input_text limit - skipping write');
+      return;
+    }
     const cur = this._hass.states[this._peakHelper()];
     if (cur && cur.state === value) return; // no-op writes just cause churn
     this._hass.callService('input_text', 'set_value', {
